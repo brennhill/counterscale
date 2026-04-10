@@ -11,6 +11,10 @@
         {
             "binding": "WEB_COUNTER_AE",
             "dataset": "metricsDataset"
+        },
+        {
+            "binding": "APP_TELEMETRY_AE",
+            "dataset": "kaboomTelemetry"
         }
     ],
     "r2_buckets": [
