@@ -9,8 +9,12 @@ const ALLOWED_METRIC_FAMILIES = new Set([
     "observe",
     "interact",
     "generate",
+    "analyze",
+    "configure",
     "ext",
 ]);
+const ALLOWED_METRIC_FAMILY_ERROR =
+    "Metric family must be one of observe, interact, generate, analyze, configure, ext";
 
 const LIFECYCLE_EVENTS = new Set([
     "daemon_start",
@@ -70,9 +74,7 @@ function parseMetricKey(metricKey: string) {
 
     const [family, name] = parts;
     if (!ALLOWED_METRIC_FAMILIES.has(family)) {
-        throw new Error(
-            "Metric family must be one of observe, interact, generate, ext",
-        );
+        throw new Error(ALLOWED_METRIC_FAMILY_ERROR);
     }
 
     const source = family === "ext" ? "ext" : "tool";

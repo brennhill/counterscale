@@ -213,6 +213,8 @@ describe("v1/event route", () => {
                 window_m: 5,
                 props: {
                     "generate:custom-workflow": 2,
+                    "analyze:performance": 1,
+                    "configure:noise_rule": 1,
                 },
             }),
         });
@@ -232,12 +234,24 @@ describe("v1/event route", () => {
         });
 
         expect(response.status).toBe(202);
-        expect(writeDataPoint).toHaveBeenCalledTimes(2);
+        expect(writeDataPoint).toHaveBeenCalledTimes(4);
         expect(writeDataPoint.mock.calls[1][0].blobs.slice(7, 11)).toEqual([
             "generate:custom-workflow",
             "tool",
             "generate",
             "custom-workflow",
+        ]);
+        expect(writeDataPoint.mock.calls[2][0].blobs.slice(7, 11)).toEqual([
+            "analyze:performance",
+            "tool",
+            "analyze",
+            "performance",
+        ]);
+        expect(writeDataPoint.mock.calls[3][0].blobs.slice(7, 11)).toEqual([
+            "configure:noise_rule",
+            "tool",
+            "configure",
+            "noise_rule",
         ]);
     });
 
@@ -389,7 +403,7 @@ describe("v1/event route", () => {
 
         expect(response.status).toBe(400);
         await expect(response.json()).resolves.toEqual({
-            error: "Metric family must be one of observe, interact, generate, ext",
+            error: "Metric family must be one of observe, interact, generate, analyze, configure, ext",
         });
         expect(writeDataPoint).not.toHaveBeenCalled();
     });
