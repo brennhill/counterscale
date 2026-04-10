@@ -2,6 +2,41 @@ import { describe, expect, test, vi } from "vitest";
 import { action } from "../v1.event";
 
 describe("v1/event route", () => {
+    test("rejects non-POST methods", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "PUT",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "daemon_start",
+                v: "0.8.1",
+                os: "darwin-arm64",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(405);
+        expect(response.headers.get("Allow")).toBe("POST");
+        expect(writeDataPoint).not.toHaveBeenCalled();
+    });
+
     test("accepts usage_summary beacons and fans out summary + metric rows", async () => {
         const writeDataPoint = vi.fn();
         const request = new Request("https://example.com/v1/event", {
@@ -76,6 +111,43 @@ describe("v1/event route", () => {
         expect(metricCall.doubles).toEqual([5, 5, 1]);
     });
 
+    test("normalizes uppercase session ids before storage", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "daemon_start",
+                v: "0.8.1",
+                os: "darwin-arm64",
+                iid: "a1b2c3d4e5f6",
+                sid: "8F3C1E4B7D92A6FF",
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(202);
+        expect(writeDataPoint).toHaveBeenCalledTimes(1);
+        expect(writeDataPoint.mock.calls[0][0].blobs[4]).toBe(
+            "8f3c1e4b7d92a6ff",
+        );
+    });
+
     test("accepts lifecycle beacons and writes one lifecycle row", async () => {
         const writeDataPoint = vi.fn();
         const request = new Request("https://example.com/v1/event", {
@@ -125,6 +197,50 @@ describe("v1/event route", () => {
         expect(writeDataPoint.mock.calls[0][0].doubles).toEqual([0, 0, 1]);
     });
 
+    test("accepts allowed metric families with open names", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "usage_summary",
+                v: "0.8.1",
+                os: "darwin-arm64",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                window_m: 5,
+                props: {
+                    "generate:custom-workflow": 2,
+                },
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(202);
+        expect(writeDataPoint).toHaveBeenCalledTimes(2);
+        expect(writeDataPoint.mock.calls[1][0].blobs.slice(7, 11)).toEqual([
+            "generate:custom-workflow",
+            "tool",
+            "generate",
+            "custom-workflow",
+        ]);
+    });
+
     test("rejects malformed usage_summary payloads", async () => {
         const writeDataPoint = vi.fn();
         const request = new Request("https://example.com/v1/event", {
@@ -156,6 +272,125 @@ describe("v1/event route", () => {
         });
 
         expect(response.status).toBe(400);
+        expect(writeDataPoint).not.toHaveBeenCalled();
+    });
+
+    test("rejects malformed session ids", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "daemon_start",
+                v: "0.8.1",
+                os: "darwin-arm64",
+                iid: "a1b2c3d4e5f6",
+                sid: "not-a-session",
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toEqual({
+            error: "sid must be a 16-character hex string",
+        });
+        expect(writeDataPoint).not.toHaveBeenCalled();
+    });
+
+    test("rejects malformed metric keys", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "usage_summary",
+                v: "0.8.1",
+                os: "darwin-arm64",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                window_m: 5,
+                props: {
+                    interact: 2,
+                },
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toEqual({
+            error: "Metric keys must match family:name",
+        });
+        expect(writeDataPoint).not.toHaveBeenCalled();
+    });
+
+    test("rejects unknown metric families", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "usage_summary",
+                v: "0.8.1",
+                os: "darwin-arm64",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                window_m: 5,
+                props: {
+                    "tool:click": 2,
+                },
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toEqual({
+            error: "Metric family must be one of observe, interact, generate, ext",
+        });
         expect(writeDataPoint).not.toHaveBeenCalled();
     });
 });

@@ -4,6 +4,13 @@ import type {
 } from "@cloudflare/workers-types";
 
 const APP_ID = "kaboom";
+const SESSION_ID_PATTERN = /^[0-9a-fA-F]{16}$/;
+const ALLOWED_METRIC_FAMILIES = new Set([
+    "observe",
+    "interact",
+    "generate",
+    "ext",
+]);
 
 const LIFECYCLE_EVENTS = new Set([
     "daemon_start",
@@ -56,13 +63,23 @@ function createBadRequest(message: string) {
 }
 
 function parseMetricKey(metricKey: string) {
-    const [family = "unknown", ...rest] = metricKey.split(":");
-    const name = rest.join(":") || "unknown";
+    const parts = metricKey.split(":");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        throw new Error("Metric keys must match family:name");
+    }
+
+    const [family, name] = parts;
+    if (!ALLOWED_METRIC_FAMILIES.has(family)) {
+        throw new Error(
+            "Metric family must be one of observe, interact, generate, ext",
+        );
+    }
+
     const source = family === "ext" ? "ext" : "tool";
 
     return {
         metricSource: source,
-        metricFamily: family || "unknown",
+        metricFamily: family,
         metricName: name,
     };
 }
@@ -81,6 +98,12 @@ export function parseAppTelemetryBeacon(body: unknown): AppTelemetryBeacon {
     if (!event || !version || !os || !installId || !sessionId) {
         throw new Error("Missing required event envelope fields");
     }
+
+    if (!SESSION_ID_PATTERN.test(sessionId)) {
+        throw new Error("sid must be a 16-character hex string");
+    }
+
+    const normalizedSessionId = sessionId.toLowerCase();
 
     if (event === "usage_summary") {
         const windowMinutes = body.window_m;
@@ -106,9 +129,10 @@ export function parseAppTelemetryBeacon(body: unknown): AppTelemetryBeacon {
                 !Number.isInteger(value) ||
                 typeof value !== "number" ||
                 value < 0
-            ) {
+                ) {
                 throw new Error("usage_summary props must be non-negative integers");
             }
+            parseMetricKey(key);
             normalizedProps[key] = value;
         }
 
@@ -117,7 +141,7 @@ export function parseAppTelemetryBeacon(body: unknown): AppTelemetryBeacon {
             v: version,
             os,
             iid: installId,
-            sid: sessionId,
+            sid: normalizedSessionId,
             window_m: windowMinutes,
             props: normalizedProps,
         };
@@ -129,7 +153,7 @@ export function parseAppTelemetryBeacon(body: unknown): AppTelemetryBeacon {
             v: version,
             os,
             iid: installId,
-            sid: sessionId,
+            sid: normalizedSessionId,
         };
     }
 
