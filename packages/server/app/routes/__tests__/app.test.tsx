@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { LoaderFunctionArgs } from "react-router";
+import type { ReactNode } from "react";
 import {
     afterEach,
     beforeAll,
@@ -13,7 +14,7 @@ import {
 import "vitest-dom/extend-expect";
 import ResizeObserverPolyfill from "resize-observer-polyfill";
 import { createRoutesStub } from "react-router";
-import { render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { requireAuth } from "~/lib/auth";
 import { AnalyticsEngineAPI } from "~/analytics/query";
@@ -23,6 +24,16 @@ import AppDashboard, { loader } from "../app";
 vi.mock("~/lib/auth", () => ({
     requireAuth: vi.fn(),
 }));
+
+vi.mock("recharts", async () => {
+    const actual = await vi.importActual("recharts");
+    return {
+        ...actual,
+        ResponsiveContainer: ({ children }: { children: ReactNode }) => (
+            <div>{children}</div>
+        ),
+    };
+});
 
 describe("App dashboard route", () => {
     let fetch: Mock;
@@ -39,6 +50,7 @@ describe("App dashboard route", () => {
     });
 
     afterEach(() => {
+        cleanup();
         vi.useRealTimers();
         vi.restoreAllMocks();
     });
@@ -143,6 +155,7 @@ describe("App dashboard route", () => {
 
     test("renders kpis, trend section, and family breakdown", async () => {
         vi.useRealTimers();
+        const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
         const RemixStub = createRoutesStub([
             {
@@ -178,6 +191,19 @@ describe("App dashboard route", () => {
                                 },
                             ],
                         },
+                        {
+                            family: "generate",
+                            totalUsage: 6,
+                            uniqueInstalls: 2,
+                            subtools: [
+                                {
+                                    key: "generate:image",
+                                    name: "image",
+                                    totalUsage: 6,
+                                    uniqueInstalls: 2,
+                                },
+                            ],
+                        },
                     ],
                 }),
             },
@@ -190,7 +216,84 @@ describe("App dashboard route", () => {
         expect(await screen.findByText("Total Sessions")).toBeInTheDocument();
         expect(await screen.findByText("Daily Active Installs")).toBeInTheDocument();
         expect(await screen.findByText("Tool Usage")).toBeInTheDocument();
-        expect(await screen.findByText("observe")).toBeInTheDocument();
+        expect(await screen.findByRole("button", { name: "observe" })).toBeInTheDocument();
         expect(await screen.findByText("errors")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "generate" })).toBeInTheDocument();
+        expect(errorSpy).not.toHaveBeenCalledWith(
+            expect.stringContaining("width(0) and height(0)"),
+        );
+    });
+
+    test("filters to one family and shows selected subtool details", async () => {
+        vi.useRealTimers();
+
+        const RemixStub = createRoutesStub([
+            {
+                path: "/app",
+                Component: AppDashboard,
+                HydrateFallback: () => null,
+                loader: () => ({
+                    range: {
+                        start: "2026-04-01",
+                        end: "2026-04-14",
+                        preset: "this_month",
+                    },
+                    overview: {
+                        uniqueInstalls: 12,
+                        totalEvents: 25,
+                        totalSessions: 7,
+                    },
+                    trend: [
+                        { date: "2026-04-13", activeInstalls: 4 },
+                        { date: "2026-04-14", activeInstalls: 5 },
+                    ],
+                    families: [
+                        {
+                            family: "observe",
+                            totalUsage: 10,
+                            uniqueInstalls: 4,
+                            subtools: [
+                                {
+                                    key: "observe:errors",
+                                    name: "errors",
+                                    totalUsage: 10,
+                                    uniqueInstalls: 4,
+                                },
+                            ],
+                        },
+                        {
+                            family: "generate",
+                            totalUsage: 6,
+                            uniqueInstalls: 2,
+                            subtools: [
+                                {
+                                    key: "generate:image",
+                                    name: "image",
+                                    totalUsage: 6,
+                                    uniqueInstalls: 2,
+                                },
+                            ],
+                        },
+                    ],
+                }),
+            },
+        ]);
+
+        render(<RemixStub initialEntries={["/app"]} />);
+
+        fireEvent.click(await screen.findByRole("button", { name: "generate" }));
+
+        expect(
+            screen.getAllByRole("button", { name: "All families" }).length,
+        ).toBeGreaterThan(0);
+        expect(screen.queryByRole("button", { name: /errors 10 uses 4 installs/i })).not.toBeInTheDocument();
+        expect(screen.getByText("image")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: /image 6 uses 2 installs/i }));
+
+        expect(screen.getByText("Selected Subtool")).toBeInTheDocument();
+        expect(screen.getByText("generate / image")).toBeInTheDocument();
+        expect(screen.getByText("6 total uses")).toBeInTheDocument();
+        expect(screen.getAllByText("2 installs").length).toBeGreaterThan(0);
     });
 });

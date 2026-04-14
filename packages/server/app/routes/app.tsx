@@ -1,4 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { useEffect, useState } from "react";
 import { Form, useLoaderData } from "react-router";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -72,8 +73,8 @@ function DailyActiveInstallsChart({
     }
 
     return (
-        <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+        <div className="h-72 min-h-72 w-full min-w-0" data-testid="daily-active-installs-chart">
+            <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={288}>
                 <AreaChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
@@ -101,6 +102,32 @@ function DailyActiveInstallsChart({
 
 export default function AppDashboard() {
     const data = useLoaderData<typeof loader>();
+    const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+    const [selectedSubtoolKey, setSelectedSubtoolKey] = useState<string | null>(null);
+
+    const visibleFamilies = selectedFamily
+        ? data.families.filter((family) => family.family === selectedFamily)
+        : data.families;
+    const selectedSubtool =
+        visibleFamilies
+            .flatMap((family) =>
+                family.subtools.map((subtool) => ({
+                    family: family.family,
+                    ...subtool,
+                })),
+            )
+            .find((subtool) => subtool.key === selectedSubtoolKey) || null;
+
+    useEffect(() => {
+        if (
+            selectedSubtoolKey &&
+            !visibleFamilies.some((family) =>
+                family.subtools.some((subtool) => subtool.key === selectedSubtoolKey),
+            )
+        ) {
+            setSelectedSubtoolKey(null);
+        }
+    }, [selectedSubtoolKey, visibleFamilies]);
 
     return (
         <div className="space-y-6">
@@ -206,7 +233,51 @@ export default function AppDashboard() {
                             No tool activity in the selected range.
                         </div>
                     ) : (
-                        data.families.map((family) => (
+                        <>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    type="button"
+                                    variant={selectedFamily === null ? "default" : "outline"}
+                                    onClick={() => setSelectedFamily(null)}
+                                >
+                                    All families
+                                </Button>
+                                {data.families.map((family) => (
+                                    <Button
+                                        key={family.family}
+                                        type="button"
+                                        variant={
+                                            selectedFamily === family.family
+                                                ? "default"
+                                                : "outline"
+                                        }
+                                        onClick={() => setSelectedFamily(family.family)}
+                                    >
+                                        {family.family}
+                                    </Button>
+                                ))}
+                            </div>
+
+                            {selectedSubtool ? (
+                                <Card>
+                                    <CardHeader>
+                                        <CardDescription>Selected Subtool</CardDescription>
+                                        <CardTitle>
+                                            {selectedSubtool.family} / {selectedSubtool.name}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                        <div>
+                                            {formatNumber(selectedSubtool.totalUsage)} total uses
+                                        </div>
+                                        <div>
+                                            {formatNumber(selectedSubtool.uniqueInstalls)} installs
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : null}
+
+                            {visibleFamilies.map((family) => (
                             <details
                                 key={family.family}
                                 className="rounded-md border p-3"
@@ -234,7 +305,25 @@ export default function AppDashboard() {
                                                     key={subtool.key}
                                                     className="grid-cols-[minmax(0,1fr),minmax(0,8ch),minmax(0,8ch)]"
                                                 >
-                                                    <TableCell>{subtool.name}</TableCell>
+                                                    <TableCell>
+                                                        <button
+                                                            type="button"
+                                                            className={`text-left hover:underline ${
+                                                                selectedSubtoolKey ===
+                                                                subtool.key
+                                                                    ? "font-semibold"
+                                                                    : ""
+                                                            }`}
+                                                            aria-label={`${subtool.name} ${formatNumber(subtool.totalUsage)} uses ${formatNumber(subtool.uniqueInstalls)} installs`}
+                                                            onClick={() =>
+                                                                setSelectedSubtoolKey(
+                                                                    subtool.key,
+                                                                )
+                                                            }
+                                                        >
+                                                            {subtool.name}
+                                                        </button>
+                                                    </TableCell>
                                                     <TableCell className="text-right">
                                                         {formatNumber(subtool.totalUsage)}
                                                     </TableCell>
@@ -247,7 +336,8 @@ export default function AppDashboard() {
                                     </Table>
                                 </div>
                             </details>
-                        ))
+                            ))}
+                        </>
                     )}
                 </CardContent>
             </Card>
