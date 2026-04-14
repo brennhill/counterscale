@@ -130,7 +130,7 @@ export async function getAppTelemetryOverview(
         runQuery<{ total_sessions: number }>(
             analyticsEngine,
             `
-                SELECT COUNT(*) AS total_sessions
+                SELECT COUNT() AS total_sessions
                 FROM (
                     SELECT blob4, blob5
                     FROM kaboomTelemetry

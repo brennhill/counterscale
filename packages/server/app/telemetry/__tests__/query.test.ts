@@ -66,6 +66,9 @@ describe("app telemetry query", () => {
             totalSessions: 88,
         });
         expect(fetch).toHaveBeenCalledTimes(3);
+        expect(fetch.mock.calls[2][1]?.body).toContain(
+            "SELECT COUNT() AS total_sessions",
+        );
     });
 
     test("returns daily active installs grouped by day", async () => {
