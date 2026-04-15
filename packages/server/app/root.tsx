@@ -113,11 +113,6 @@ export const Layout = ({ children = [] }: { children: React.ReactNode }) => {
                 </div>
                 <ScrollRestoration />
                 <Scripts />
-                <script
-                    id="counterscale-script"
-                    data-site-id="counterscale-dev"
-                    src="/tracker.js"
-                ></script>
             </body>
         </html>
     );

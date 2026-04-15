@@ -159,4 +159,34 @@ describe("Layout", () => {
             "https://test.counterscale.dev/",
         );
     });
+
+    test("does not inject the tracker script into the app shell", async () => {
+        function loader() {
+            return {
+                version: "v1.2.3",
+                origin: "https://t.gokaboom.dev",
+                url: "https://t.gokaboom.dev/",
+            };
+        }
+
+        const RemixStub = createRoutesStub([
+            {
+                path: "/",
+                // @ts-expect-error TODO: Figure out how to type this
+                Component: Layout,
+                loader,
+            },
+        ]);
+
+        render(<RemixStub />);
+
+        await waitFor(() =>
+            expect(
+                document.querySelector('meta[property="og:url"]'),
+            ).toBeInTheDocument(),
+        );
+
+        expect(document.querySelector("#counterscale-script")).toBeNull();
+        expect(document.querySelector('script[src="/tracker.js"]')).toBeNull();
+    });
 });
