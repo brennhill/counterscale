@@ -43,12 +43,12 @@ describe("Index route", () => {
         // Wait for content to load
         await waitFor(() => {
             expect(
-                screen.getByText("Welcome to Counterscale"),
+                screen.getByText("Kaboom Metrics"),
             ).toBeInTheDocument();
         });
 
         expect(
-            screen.getByText("Enter your password to access the dashboard"),
+            screen.getByText("Private analytics and telemetry for Kaboom."),
         ).toBeInTheDocument();
 
         expect(screen.getByText("Sign In")).toBeInTheDocument();
@@ -70,12 +70,12 @@ describe("Index route", () => {
 
         await waitFor(() => {
             expect(
-                screen.getByText("Welcome to Counterscale"),
+                screen.getByText("Kaboom Metrics"),
             ).toBeInTheDocument();
         });
 
         expect(
-            screen.getByText("Continue to access your analytics dashboard."),
+            screen.getByText("You are signed in. Continue to the analytics workspace."),
         ).toBeInTheDocument();
 
         expect(screen.getByText("Go to Dashboard")).toBeInTheDocument();

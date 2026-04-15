@@ -133,13 +133,14 @@ export default function AppDashboard() {
         <div className="space-y-6">
             <div className="flex items-end justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-2xl font-semibold">App Telemetry</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Kaboom install and tool usage over the selected range.
+                    <div className="kaboom-label mb-2">Kaboom Metrics</div>
+                    <h1 className="kaboom-title text-2xl sm:text-4xl">Kaboom Usage</h1>
+                    <p className="kaboom-subtitle">
+                        How Kaboom is being used over the selected range.
                     </p>
                 </div>
 
-                <Form method="get" className="flex gap-2 flex-wrap items-end">
+                <Form method="get" className="kaboom-filter-bar flex gap-2 flex-wrap items-end">
                     <div className="flex flex-col">
                         <label htmlFor="preset" className="text-sm font-medium">
                             Range
@@ -148,7 +149,7 @@ export default function AppDashboard() {
                             id="preset"
                             name="preset"
                             defaultValue={data.range.preset || "this_month"}
-                            className="border rounded-md h-10 px-3 bg-background"
+                            className="h-11 rounded-full border border-input bg-background/85 px-4"
                         >
                             <option value="7d">7 days</option>
                             <option value="30d">30 days</option>
@@ -166,7 +167,7 @@ export default function AppDashboard() {
                             name="start"
                             type="date"
                             defaultValue={data.range.start}
-                            className="border rounded-md h-10 px-3 bg-background"
+                            className="h-11 rounded-full border border-input bg-background/85 px-4"
                         />
                     </div>
 
@@ -179,7 +180,7 @@ export default function AppDashboard() {
                             name="end"
                             type="date"
                             defaultValue={data.range.end}
-                            className="border rounded-md h-10 px-3 bg-background"
+                            className="h-11 rounded-full border border-input bg-background/85 px-4"
                         />
                     </div>
 

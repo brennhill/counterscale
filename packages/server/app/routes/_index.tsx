@@ -48,28 +48,38 @@ export default function Index() {
     const isSubmitting = ["submitting", "loading"].includes(navigation.state);
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
-            <img
-                src="/counterscale-logo.webp"
-                alt="CounterScale Logo"
-                className="w-72"
-            />
-            <Card className="w-full max-w-md p-8 text-center">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                        Welcome to Counterscale
-                    </h1>
-                    <p className="text-gray-600">
-                    {!authEnabled 
-                        ? "Access your analytics dashboard." 
-                        : user?.authenticated 
-                            ? "Continue to access your analytics dashboard." 
-                            : "Enter your password to access the dashboard"
-                    }
+        <div className="grid min-h-[72vh] items-center gap-8 py-6 lg:grid-cols-[minmax(0,1.1fr),minmax(0,0.9fr)]">
+            <div className="space-y-5">
+                <div className="kaboom-label">Private Analytics</div>
+                <h1 className="kaboom-title max-w-[10ch]">
+                    Kaboom Metrics
+                </h1>
+                <p className="kaboom-subtitle">
+                    Private analytics and telemetry for Kaboom.
+                </p>
+                <div className="rounded-[28px] border bg-card/70 p-5 text-sm leading-6 text-muted-foreground shadow-[0_16px_40px_rgba(5,26,30,0.05)]">
+                    Use this workspace to inspect website traffic and application telemetry without leaving the Kaboom brand surface.
+                </div>
+            </div>
+            <Card className="w-full max-w-xl p-8 sm:p-10">
+                <div className="mb-8 space-y-3">
+                    <div className="kaboom-label">Access</div>
+                    <h2 className="text-3xl font-semibold">
+                        {!authEnabled
+                            ? "Dashboard access"
+                            : user?.authenticated
+                                ? "You are signed in"
+                                : "Sign in to continue"}
+                    </h2>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                        {!authEnabled
+                            ? "Access the analytics workspace."
+                            : user?.authenticated
+                                ? "You are signed in. Continue to the analytics workspace."
+                                : "Use the shared dashboard password to open the metrics workspace."}
                     </p>
                 </div>
-                
-                {/* When auth is disabled or user is already authenticated, show dashboard button */}
+
                 {(!authEnabled || user?.authenticated) ? (
                     <Button asChild className="w-full">
                         <a href="/dashboard">Go to Dashboard</a>
@@ -87,7 +97,7 @@ export default function Index() {
                                 name="password"
                                 required
                                 disabled={isSubmitting}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full rounded-full border border-input bg-background/80 px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 placeholder="Enter your password"
                             />
                         </div>

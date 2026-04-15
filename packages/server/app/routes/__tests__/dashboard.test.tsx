@@ -309,6 +309,10 @@ describe("Dashboard route", () => {
         render(<RemixStub />);
 
         await waitFor(() => screen.findByText("Path"));
+        expect(screen.getByText("Web Analytics")).toBeInTheDocument();
+        expect(
+            screen.getByText("Traffic, acquisition, and browser activity for the selected site."),
+        ).toBeInTheDocument();
         expect(screen.getByText("Path")).toBeInTheDocument();
         expect(screen.getByText("Referrer")).toBeInTheDocument();
         expect(screen.getByText("Browser")).toBeInTheDocument();

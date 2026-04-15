@@ -181,8 +181,16 @@ export default function Dashboard() {
     const userTimezone = getUserTimezone();
 
     return (
-        <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
-            <div className="w-full mb-4 flex gap-4 flex-wrap">
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <div className="kaboom-label">Kaboom Metrics</div>
+                <h1 className="kaboom-title">Web Analytics</h1>
+                <p className="kaboom-subtitle">
+                    Traffic, acquisition, and browser activity for the selected site.
+                </p>
+            </div>
+
+            <div className="kaboom-filter-bar w-full flex gap-4 flex-wrap">
                 <div className="lg:basis-1/5-gap-4 sm:basis-1/4-gap-4 basis-1/2-gap-4">
                     <Select
                         defaultValue={data.siteId}
@@ -234,7 +242,7 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className="transition" style={{ opacity: loading ? 0.6 : 1 }}>
+            <div className="transition space-y-4" style={{ opacity: loading ? 0.6 : 1 }}>
                 <div className="w-full mb-4">
                     <StatsCard
                         siteId={data.siteId}

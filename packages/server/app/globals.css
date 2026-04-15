@@ -1,80 +1,159 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
     :root {
-        --background: 42 69% 85%;
-        --foreground: 164 14% 21%;
+        --background: 48 45% 97%;
+        --foreground: 190 72% 7%;
 
-        --card: 42 69% 88%;
-        --card-foreground: 222.2 84% 4.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 190 28% 14%;
 
         --popover: 0 0% 100%;
-        --popover-foreground: 222.2 84% 4.9%;
+        --popover-foreground: 190 28% 14%;
 
-        --primary: 15 94% 61%;
-        --primary-foreground: 210 40% 98%;
+        --primary: 8 81% 57%;
+        --primary-foreground: 48 45% 97%;
 
-        --secondary: 210 40% 96.1%;
-        --secondary-foreground: 222.2 47.4% 11.2%;
+        --secondary: 48 33% 93%;
+        --secondary-foreground: 190 28% 14%;
 
-        --muted: 210 40% 96.1%;
-        --muted-foreground: 215.4 16.3% 46.9%;
+        --muted: 45 27% 93%;
+        --muted-foreground: 212 17% 44%;
 
-        --accent: 210 40% 96.1%;
-        --accent-foreground: 222.2 47.4% 11.2%;
+        --accent: 45 27% 93%;
+        --accent-foreground: 190 28% 14%;
 
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 210 40% 98%;
 
-        --border: 15 90% 60%;
-        --barchart: 32.89 89.4% 70.39%;
+        --border: 42 24% 81%;
+        --barchart: 28 78% 58%;
+        --palette-darkgrey: 196 14% 39%;
+        --input: 42 24% 81%;
+        --ring: 190 72% 7%;
 
-        --palette-darkgrey: 167.14, 14%, 39.22%;
-        --input: 15 90% 60%;
-        --ring: 222.2 84% 4.9%;
-
-        --radius: 0.5rem;
+        --radius: 1.15rem;
     }
 
     .dark {
-        --background: 222.2 84% 4.9%;
+        --background: 220 29% 11%;
         --foreground: 210 40% 98%;
 
-        --card: 222.2 84% 4.9%;
+        --card: 215 29% 16%;
         --card-foreground: 210 40% 98%;
 
-        --popover: 222.2 84% 4.9%;
+        --popover: 215 29% 16%;
         --popover-foreground: 210 40% 98%;
 
-        --primary: 210 40% 98%;
-        --primary-foreground: 222.2 47.4% 11.2%;
+        --primary: 8 81% 57%;
+        --primary-foreground: 210 40% 98%;
 
-        --secondary: 217.2 32.6% 17.5%;
+        --secondary: 217 22% 24%;
         --secondary-foreground: 210 40% 98%;
 
-        --muted: 217.2 32.6% 17.5%;
+        --muted: 217 22% 24%;
         --muted-foreground: 215 20.2% 65.1%;
 
-        --accent: 217.2 32.6% 17.5%;
+        --accent: 217 22% 24%;
         --accent-foreground: 210 40% 98%;
 
         --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 210 40% 98%;
 
-        --border: 217.2 32.6% 17.5%;
-        --input: 217.2 32.6% 17.5%;
-        --ring: 212.7 26.8% 83.9%;
+        --border: 214 20% 29%;
+        --input: 214 20% 29%;
+        --ring: 210 40% 98%;
     }
-}
 
-@layer base {
     * {
         @apply border-border;
     }
 
+    html {
+        font-family: "DM Sans", "Segoe UI", sans-serif;
+    }
+
     body {
         @apply bg-background text-foreground;
+        background-image:
+            radial-gradient(circle at 1px 1px, rgba(5, 26, 30, 0.08) 1px, transparent 0),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(255, 254, 250, 0.96));
+        background-size: 14px 14px, 100% 100%;
+        min-height: 100vh;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: "Space Grotesk", "Avenir Next", sans-serif;
+        letter-spacing: -0.03em;
+        color: hsl(var(--foreground));
+    }
+
+    code,
+    kbd,
+    pre,
+    .font-mono {
+        font-family: "IBM Plex Mono", monospace;
+    }
+
+    input,
+    select,
+    textarea {
+        @apply text-foreground;
+    }
+
+    ::selection {
+        background: rgba(234, 74, 53, 0.2);
+    }
+}
+
+@layer components {
+    .kaboom-shell {
+        @apply mx-auto max-w-7xl px-3 sm:px-8;
+    }
+
+    .kaboom-page {
+        @apply mt-2 space-y-8 pb-8 sm:mt-6;
+    }
+
+    .kaboom-nav {
+        @apply mb-8 flex flex-wrap items-center justify-between gap-4 rounded-[28px] border bg-card/90 px-5 py-4 shadow-[0_12px_40px_rgba(5,26,30,0.08)] backdrop-blur;
+    }
+
+    .kaboom-brand {
+        @apply flex items-center gap-3;
+    }
+
+    .kaboom-brand-badge {
+        @apply flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background shadow-[0_10px_30px_rgba(5,26,30,0.16)];
+    }
+
+    .kaboom-label {
+        @apply text-[11px] uppercase tracking-[0.24em] text-muted-foreground;
+        font-family: "IBM Plex Mono", monospace;
+    }
+
+    .kaboom-title {
+        @apply text-3xl font-semibold sm:text-4xl;
+    }
+
+    .kaboom-subtitle {
+        @apply max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base;
+    }
+
+    .kaboom-panel {
+        @apply rounded-[28px] border bg-card/95 shadow-[0_18px_50px_rgba(5,26,30,0.08)];
+    }
+
+    .kaboom-filter-bar {
+        @apply rounded-[24px] border bg-card/85 p-4 shadow-[0_10px_30px_rgba(5,26,30,0.06)];
     }
 }

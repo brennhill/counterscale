@@ -211,6 +211,10 @@ describe("App dashboard route", () => {
 
         render(<RemixStub initialEntries={["/app"]} />);
 
+        expect(await screen.findByText("Kaboom Usage")).toBeInTheDocument();
+        expect(
+            await screen.findByText("How Kaboom is being used over the selected range."),
+        ).toBeInTheDocument();
         expect(await screen.findByText("Unique Installs")).toBeInTheDocument();
         expect(await screen.findByText("Total Tool Events")).toBeInTheDocument();
         expect(await screen.findByText("Total Sessions")).toBeInTheDocument();

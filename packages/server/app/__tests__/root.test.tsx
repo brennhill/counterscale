@@ -53,6 +53,7 @@ describe("Root", () => {
         // wait until the rows render in the document
         await waitFor(() => screen.findByText("Version"));
         expect(screen.getByText("ABC123")).toBeInTheDocument();
+        expect(screen.getByText("Kaboom Metrics")).toBeInTheDocument();
     });
 
     test("renders logout button when user is authenticated", async () => {
@@ -87,7 +88,7 @@ describe("Root", () => {
         const logoutLink = screen.getByText("Logout");
         expect(logoutLink).toBeInTheDocument();
         expect(logoutLink.closest("a")).toHaveAttribute("href", "/logout");
-        expect(logoutLink.closest("a")).toHaveClass("ml-2");
+        expect(logoutLink.closest("a")).toHaveClass("rounded-full");
     });
 });
 

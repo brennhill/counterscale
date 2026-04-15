@@ -108,7 +108,7 @@ export const Layout = ({ children = [] }: { children: React.ReactNode }) => {
                 <Links />
             </head>
             <body>
-                <div className="container mx-auto pl-2 pr-2 sm:pl-8 sm:pr-8">
+                <div className="kaboom-shell">
                     {children}
                 </div>
                 <ScrollRestoration />
@@ -132,56 +132,52 @@ export default function App() {
     const homeUrl = isCounterscaleSubdomain ? "https://counterscale.dev" : "/";
 
     return (
-        <div className="mt-0 sm:mt-4">
-            <header className="border-b-2 mb-8 py-2">
-                <nav className="flex justify-between items-center">
-                    <div className="flex items-center">
-                        <a href={homeUrl} className="text-lg font-bold">
-                            Counterscale
+        <div className="kaboom-page">
+            <header className="kaboom-nav">
+                <div className="kaboom-brand">
+                    <a href={homeUrl} className="kaboom-brand-badge" aria-label="Kaboom home">
+                        <span className="text-xl">K</span>
+                    </a>
+                    <div>
+                        <div className="kaboom-label">Private Telemetry</div>
+                        <a href={homeUrl} className="text-xl font-semibold">
+                            Kaboom Metrics
                         </a>
-                        <img
-                            className="w-6 ml-1"
-                            src="/img/arrow.svg"
-                            alt="Counterscale Icon"
-                        />
                     </div>
-                    <div className="flex items-center font-small font-medium text-md">
-                        <a href="/dashboard">Dashboard</a>
-                        <a href="/app" className="ml-2">
+                </div>
+                <nav className="flex flex-wrap items-center gap-2 text-sm font-medium sm:text-base">
+                    <a href="/dashboard" className="rounded-full px-3 py-2 hover:bg-accent">
+                        Web
+                    </a>
+                    <a href="/app" className="rounded-full px-3 py-2 hover:bg-accent">
                             App
+                    </a>
+                    <a
+                        href="/admin-redirect"
+                        target="_blank"
+                        className="hidden rounded-full px-3 py-2 hover:bg-accent sm:inline-block"
+                    >
+                        Admin
+                    </a>
+                    {(data.user?.authenticated && data.isAuthEnabled) && (
+                        <a href="/logout" className="rounded-full px-3 py-2 hover:bg-accent">
+                            Logout
                         </a>
-                        <a
-                            href="/admin-redirect"
-                            target="_blank"
-                            className="hidden sm:inline-block ml-2"
-                        >
-                            Admin
-                        </a>
-                        {(data.user?.authenticated && data.isAuthEnabled) && (
-                            <a href="/logout" className="ml-2">
-                                Logout
-                            </a>
-                        )}
-                        <a
-                            href="https://github.com/benvinegar/counterscale"
-                            className="w-6 ml-2"
-                        >
-                            <img
-                                src="/github-mark.svg"
-                                alt="GitHub Logo"
-                                style={{
-                                    filter: "invert(21%) sepia(27%) saturate(271%) hue-rotate(113deg) brightness(97%) contrast(97%)",
-                                }}
-                            />
-                        </a>
-                    </div>
+                    )}
+                    <a
+                        href="https://github.com/brennhill/kaboom-metrics"
+                        className="rounded-full px-3 py-2 hover:bg-accent"
+                    >
+                        GitHub
+                    </a>
                 </nav>
             </header>
             <main role="main" className="w-full">
                 <Outlet />
             </main>
 
-            <footer className="py-4 flex justify-end text-s">
+            <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/80 py-4 text-sm text-muted-foreground">
+                <div className="kaboom-label">Kaboom telemetry workspace</div>
                 <div>
                     Version{" "}
                     {data.version ? (
