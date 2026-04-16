@@ -83,7 +83,7 @@
 
 **Implementation notes:**
 - Current data supports summary + family/subtool usage + coarse session activity.
-- Add `session_start`, `session_end`, and `tool_event` to make this page materially more useful.
+- Add `session_start`, `session_end`, and `tool_call` to make this page materially more useful.
 
 ## Phase 3: Segment View
 
@@ -124,7 +124,7 @@
 
 **Implementation notes:**
 - Start with session-level co-usage from current session-grouped metric rows.
-- Upgrade later to finer co-usage with `tool_event`.
+- Upgrade later to finer co-usage with `tool_call`.
 
 ## Phase 5: Session Flow Analysis
 
@@ -143,7 +143,7 @@
 
 **Implementation notes:**
 - This phase is blocked on ordered event capture.
-- `usage_summary` does not preserve action order, so add `tool_event` with timestamps first.
+- `usage_summary` does not preserve action order, so add `tool_call` with timestamps first.
 
 ## Phase 6: Feature Table and Clustering
 
@@ -173,10 +173,10 @@
 
 ## Contract Rollout Order
 
-1. Add richer envelope fields to all existing beacons.
+1. Add the shared envelope to all beacons.
 2. Add `session_start` and `session_end`.
-3. Add `tool_event`.
-4. Add `screen_view` if the app has meaningful navigable surfaces.
+3. Add `tool_call` and `first_tool_call`.
+4. Add structured `usage_summary` and `app_error`.
 
 This order keeps the current dashboards stable while unlocking deeper analysis incrementally.
 

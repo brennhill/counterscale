@@ -1,55 +1,49 @@
-# Kaboom Telemetry Ingestion Implementation Plan
+# Kaboom Telemetry Ingestion Implementation Record
 
-> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
+This document records the delivered Kaboom telemetry ingestion path.
 
-**Goal:** Add `POST /v1/event` so Kaboom can send telemetry beacons that Counterscale stores in a dedicated app telemetry dataset.
+## Delivered Outcome
 
-**Architecture:** Introduce a dedicated ingestion path and Analytics Engine binding for app telemetry. Normalize `usage_summary` into one summary row plus per-metric rows, and write lifecycle beacons as single rows. Keep the existing pageview pipeline unchanged.
+The worker exposes:
 
-**Tech Stack:** React Router, Cloudflare Workers, Workers Analytics Engine, Vitest, TypeScript
+- `POST /v1/event`
 
----
+The route accepts the canonical Kaboom telemetry contract and writes normalized rows into `APP_TELEMETRY_AE`.
 
-## Chunk 1: Route Contract
+## Canonical References
 
-### Task 1: Lock the endpoint contract with tests
+- Contract: [docs/contracts/kaboom-app-telemetry-analysis-contract.md](/Users/brenn/dev/counterscale/docs/contracts/kaboom-app-telemetry-analysis-contract.md)
+- Ingestion design: [docs/superpowers/specs/2026-04-08-kaboom-telemetry-ingestion-design.md](/Users/brenn/dev/counterscale/docs/superpowers/specs/2026-04-08-kaboom-telemetry-ingestion-design.md)
 
-**Files:**
-- Create: `packages/server/app/routes/__tests__/v1.event.test.tsx`
-- Create: `packages/server/app/routes/v1.event.tsx`
+## Implemented Event Set
 
-- [ ] **Step 1: Write failing tests for `POST /v1/event`**
-- [ ] **Step 2: Run the route test file and confirm failure**
-- [ ] **Step 3: Implement the route action with request parsing and response shape**
-- [ ] **Step 4: Re-run the route test file and confirm pass**
+- `tool_call`
+- `first_tool_call`
+- `session_start`
+- `session_end`
+- `usage_summary`
+- `app_error`
 
-## Chunk 2: Ingestion and Storage
+## Implemented Row Types
 
-### Task 2: Normalize Kaboom beacons into analytics datapoints
+- `tool_call`
+- `first_tool_call`
+- `session_start`
+- `session_end`
+- `tool_summary`
+- `async_outcome`
+- `app_error`
 
-**Files:**
-- Create: `packages/server/app/telemetry/ingest.ts`
-- Modify: `packages/server/worker-configuration.d.ts`
-- Modify: `packages/server/wrangler.json`
-- Test: `packages/server/app/routes/__tests__/v1.event.test.tsx`
+## Verification
 
-- [ ] **Step 1: Write failing assertions for normalized usage summary writes**
-- [ ] **Step 2: Run tests and confirm failure**
-- [ ] **Step 3: Implement summary, metric, and lifecycle row writers**
-- [ ] **Step 4: Re-run tests and confirm pass**
+Focused route and ingest tests:
 
-## Chunk 3: Verification and Deploy
+```bash
+pnpm --filter @counterscale/server exec vitest run app/routes/__tests__/v1.event.test.tsx app/telemetry/__tests__/ingest.test.ts
+```
 
-### Task 3: Build, deploy, and verify live ingestion
+Build:
 
-**Files:**
-- Modify: `packages/server/app/routes/admin-redirect.tsx`
-- Modify: `packages/server/app/routes/v1.event.tsx`
-- Modify: `packages/server/app/telemetry/ingest.ts`
-- Modify: `packages/server/wrangler.json`
-
-- [ ] **Step 1: Run the focused route tests**
-- [ ] **Step 2: Run the server build**
-- [ ] **Step 3: Deploy production Worker with the updated config**
-- [ ] **Step 4: Send live sample lifecycle and usage summary beacons**
-- [ ] **Step 5: Confirm the endpoint accepts and stores those beacons without error**
+```bash
+pnpm --filter @counterscale/server build
+```

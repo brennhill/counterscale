@@ -1,104 +1,96 @@
 # Kaboom Telemetry Ingestion Design
 
-> Add a dedicated `POST /v1/event` ingestion endpoint to Counterscale so Kaboom can send anonymous usage and lifecycle beacons that are stored in a queryable shape for later analysis.
+This document records the current ingestion design for Kaboom app telemetry.
 
 ## Goal
 
-Accept the Kaboom beacon contract from `/Users/brenn/dev/gasoline/docs/core/app-metrics.md` and store it in a dedicated Analytics Engine dataset without overloading the pageview dataset.
+Accept structured Kaboom telemetry at `POST /v1/event` and flatten it into queryable Cloudflare Analytics Engine rows without mixing it into the web pageview dataset.
 
-## Decision
-
-Use a separate Analytics Engine dataset for app telemetry.
-
-Each incoming beacon is normalized into one or more rows:
-
-- `summary` row for every `usage_summary`
-- `metric` row for each `props` entry inside `usage_summary`
-- `lifecycle` row for `daemon_start`, `extension_connect`, and `extension_version_mismatch`
-
-App identity is fixed to `kaboom` for this ingestion path.
-
-## Endpoint Contract
+## Endpoint
 
 - Route: `POST /v1/event`
 - Body: JSON
-- Accepted events:
-  - `usage_summary`
-  - `daemon_start`
-  - `extension_connect`
-  - `extension_version_mismatch`
+- Response: `202 Accepted`
 
-Usage summary requires:
+Canonical contract:
 
-- `event`
-- `v`
-- `os`
-- `iid`
-- `sid`
-- `window_m`
-- `props`
+- [docs/contracts/kaboom-app-telemetry-analysis-contract.md](/Users/brenn/dev/counterscale/docs/contracts/kaboom-app-telemetry-analysis-contract.md)
 
-Lifecycle beacons require:
+## Supported Events
 
-- `event`
-- `v`
-- `os`
-- `iid`
-- `sid`
+- `tool_call`
+- `first_tool_call`
+- `session_start`
+- `session_end`
+- `usage_summary`
+- `app_error`
 
-## Storage Shape
+## Normalized Row Model
 
-Use a dedicated dataset binding, `APP_TELEMETRY_AE`.
+The ingest layer writes one Analytics Engine row per atomic fact.
 
-Common stored dimensions:
+Row types:
 
-- `app_id`
+- `tool_call`
+- `first_tool_call`
+- `session_start`
+- `session_end`
+- `tool_summary`
+- `async_outcome`
+- `app_error`
+
+Flattening:
+
+- one `tool_call` row per raw tool invocation
+- one `first_tool_call` row per install milestone
+- one `session_start` row per session start
+- one `session_end` row per session end
+- one `app_error` row per runtime/product failure
+- one `tool_summary` row per `usage_summary.tool_stats[]` entry
+- one `async_outcome` row per `usage_summary.async_outcomes` key
+
+## Stored Dimensions
+
+Common dimensions:
+
 - `row_type`
-- `event_name`
-- `install_id`
-- `session_id`
-- `version`
+- `event`
+- `iid`
+- `sid`
+- `v`
 - `os`
-- `beacon_id`
+- `channel`
+- `tool`
+- `family`
+- `name`
+- `source`
+- `entrypoint`
+- `outcome`
+- `async_outcome`
+- `error_kind`
+- `error_code`
+- `severity`
+- `screen`
+- `workspace_bucket`
 
-Metric rows additionally store:
+Common numerics:
 
-- `metric_key`
-- `metric_source`
-- `metric_family`
-- `metric_name`
-- `metric_count`
-
-Summary rows additionally store:
-
+- `event_time_ms`
+- `count`
 - `window_m`
-- `row_count`
+- `latency_ms`
+- `latency_avg_ms`
+- `latency_max_ms`
+- `error_count`
+- `duration_s`
+- `tool_calls`
+- `active_window_m`
+- `retryable`
 
-Lifecycle rows omit `window_m` and metric fields, but still store `row_count`.
+## Dataset Separation
 
-All rows store `row_count = 1` so lifecycle rows have an explicit numeric payload and future aggregate queries can count rows without relying only on raw event count.
+App telemetry is stored in `APP_TELEMETRY_AE`.
 
-## Why This Shape
+Web pageviews remain in `WEB_COUNTER_AE`.
 
-This is the minimum shape that preserves future analysis options:
-
-- installs: distinct `install_id`
-- active installs: installs with summary rows
-- session length: sum `window_m` by `session_id`
-- tool usage: sum `metric_count` by `metric_key`
-- tool co-usage: metric rows grouped by `session_id` or `beacon_id`
-
-## Non-Goals
-
-- Dashboard queries or UI for app telemetry
-- Authentication on this ingestion endpoint
-- Multi-app routing in v1
-
-## Deployment
-
-Deployment requires:
-
-- new route file for `/v1/event`
-- new ingestion/writer module
-- new Analytics Engine binding in Wrangler config
-- updated Worker deployment to production
+The two datasets are intentionally separate because they answer different product questions and use different identities and query semantics.

@@ -84,6 +84,131 @@ describe("App dashboard route", () => {
                             },
                         ],
                     }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                tool: "observe:page",
+                                metric_family: "observe",
+                                metric_name: "page",
+                                total_calls: 12,
+                                unique_installs: 5,
+                                error_count: 1,
+                                avg_latency_ms: 45,
+                                max_latency_ms: 230,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                install_count: 20,
+                                activated_install_count: 12,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                avg_duration_s: 1500,
+                                avg_tool_calls: 28,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [{ total_events: 1 }, { total_events: 4 }],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            { async_outcome: "complete", count: 7 },
+                            { async_outcome: "timeout", count: 1 },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                error_kind: "integration",
+                                error_code: "EXTENSION_HANDSHAKE_FAILED",
+                                count: 3,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                install_id: "install-a",
+                                first_seen: "2026-04-01",
+                                last_seen: "2026-04-14",
+                                active_days: 7,
+                                total_sessions: 5,
+                                total_events: 25,
+                                approx_active_minutes: 15,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                install_id: "install-a",
+                                metric_family: "observe",
+                                total_usage: 12,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [{ total_events: 1 }, { total_events: 4 }],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                family_a: "observe",
+                                family_b: "generate",
+                                shared_installs: 3,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [
+                            {
+                                metric_family: "observe",
+                                metric_name: "errors",
+                                metric_key: "observe:errors",
+                                total_usage: 10,
+                                unique_installs: 1,
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [{ day: "2026-04-14", total_events: 5 }],
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    createFetchResponse({
+                        data: [{ total_events: 1 }, { total_events: 3 }],
+                    }),
                 );
 
             const response = await loader({
@@ -134,6 +259,95 @@ describe("App dashboard route", () => {
                     ],
                 },
             ]);
+            expect(response.installs).toEqual([
+                {
+                    installId: "install-a",
+                    firstSeen: "2026-04-01",
+                    lastSeen: "2026-04-14",
+                    activeDays: 7,
+                    totalSessions: 5,
+                    totalEvents: 25,
+                    approxActiveMinutes: 15,
+                    topFamily: "observe",
+                },
+            ]);
+            expect(response.segments).toEqual([
+                expect.objectContaining({ key: "power", count: 1 }),
+            ]);
+            expect(response.sessionDepth).toEqual([
+                { label: "1", sessionCount: 1 },
+                { label: "4-9", sessionCount: 1 },
+            ]);
+            expect(response.coUsage).toEqual([
+                { familyA: "observe", familyB: "generate", sharedInstalls: 3 },
+            ]);
+            expect(response.toolPerformance).toEqual([
+                {
+                    tool: "observe:page",
+                    family: "observe",
+                    name: "page",
+                    totalCalls: 12,
+                    uniqueInstalls: 5,
+                    errorCount: 1,
+                    errorRate: 1 / 12,
+                    avgLatencyMs: 45,
+                    maxLatencyMs: 230,
+                },
+            ]);
+            expect(response.activation).toEqual({
+                installCount: 20,
+                activatedInstallCount: 12,
+                activationRate: 0.6,
+            });
+            expect(response.sessionQuality).toEqual({
+                avgDurationS: 1500,
+                avgToolCalls: 28,
+                buckets: [
+                    { label: "1", sessionCount: 1 },
+                    { label: "4-9", sessionCount: 1 },
+                ],
+            });
+            expect(response.asyncOutcomes).toEqual([
+                { outcome: "complete", count: 7 },
+                { outcome: "timeout", count: 1 },
+            ]);
+            expect(response.appErrors).toEqual([
+                {
+                    errorKind: "integration",
+                    errorCode: "EXTENSION_HANDSHAKE_FAILED",
+                    count: 3,
+                },
+            ]);
+            expect(response.selectedInstall).toEqual({
+                installId: "install-a",
+                firstSeen: "2026-04-01",
+                lastSeen: "2026-04-14",
+                activeDays: 7,
+                totalSessions: 5,
+                totalEvents: 25,
+                approxActiveMinutes: 15,
+                topFamily: "observe",
+                families: [
+                    {
+                        family: "observe",
+                        totalUsage: 10,
+                        uniqueInstalls: 1,
+                        subtools: [
+                            {
+                                key: "observe:errors",
+                                name: "errors",
+                                totalUsage: 10,
+                                uniqueInstalls: 1,
+                            },
+                        ],
+                    },
+                ],
+                activity: expect.any(Array),
+                sessionDepth: [
+                    { label: "1", sessionCount: 1 },
+                    { label: "2-3", sessionCount: 1 },
+                ],
+            });
         });
 
         test("requires authentication", async () => {
@@ -205,6 +419,108 @@ describe("App dashboard route", () => {
                             ],
                         },
                     ],
+                    installs: [
+                        {
+                            installId: "install-a",
+                            firstSeen: "2026-04-01",
+                            lastSeen: "2026-04-14",
+                            activeDays: 7,
+                            totalSessions: 5,
+                            totalEvents: 25,
+                            approxActiveMinutes: 15,
+                            topFamily: "observe",
+                        },
+                    ],
+                    segments: [
+                        {
+                            key: "new",
+                            label: "New installs",
+                            description: "First seen inside the selected date range.",
+                            count: 1,
+                            share: 1,
+                        },
+                    ],
+                    sessionDepth: [
+                        { label: "1", sessionCount: 1 },
+                        { label: "4-9", sessionCount: 1 },
+                    ],
+                    coUsage: [
+                        {
+                            familyA: "observe",
+                            familyB: "generate",
+                            sharedInstalls: 3,
+                        },
+                    ],
+                    toolPerformance: [
+                        {
+                            tool: "observe:page",
+                            family: "observe",
+                            name: "page",
+                            totalCalls: 12,
+                            uniqueInstalls: 5,
+                            errorCount: 1,
+                            errorRate: 1 / 12,
+                            avgLatencyMs: 45,
+                            maxLatencyMs: 230,
+                        },
+                    ],
+                    activation: {
+                        installCount: 20,
+                        activatedInstallCount: 12,
+                        activationRate: 0.6,
+                    },
+                    sessionQuality: {
+                        avgDurationS: 1500,
+                        avgToolCalls: 28,
+                        buckets: [
+                            { label: "1", sessionCount: 1 },
+                            { label: "4-9", sessionCount: 1 },
+                        ],
+                    },
+                    asyncOutcomes: [
+                        { outcome: "complete", count: 7 },
+                        { outcome: "timeout", count: 1 },
+                    ],
+                    appErrors: [
+                        {
+                            errorKind: "integration",
+                            errorCode: "EXTENSION_HANDSHAKE_FAILED",
+                            count: 3,
+                        },
+                    ],
+                    selectedInstall: {
+                        installId: "install-a",
+                        firstSeen: "2026-04-01",
+                        lastSeen: "2026-04-14",
+                        activeDays: 7,
+                        totalSessions: 5,
+                        totalEvents: 25,
+                        approxActiveMinutes: 15,
+                        topFamily: "observe",
+                        families: [
+                            {
+                                family: "observe",
+                                totalUsage: 10,
+                                uniqueInstalls: 1,
+                                subtools: [
+                                    {
+                                        key: "observe:errors",
+                                        name: "errors",
+                                        totalUsage: 10,
+                                        uniqueInstalls: 1,
+                                    },
+                                ],
+                            },
+                        ],
+                        activity: [
+                            { date: "2026-04-13", totalEvents: 4 },
+                            { date: "2026-04-14", totalEvents: 5 },
+                        ],
+                        sessionDepth: [
+                            { label: "1", sessionCount: 1 },
+                            { label: "2-3", sessionCount: 1 },
+                        ],
+                    },
                 }),
             },
         ]);
@@ -220,6 +536,17 @@ describe("App dashboard route", () => {
         expect(await screen.findByText("Total Sessions")).toBeInTheDocument();
         expect(await screen.findByText("Daily Active Installs")).toBeInTheDocument();
         expect(await screen.findByText("Tool Usage")).toBeInTheDocument();
+        expect(await screen.findByText("Install Activity")).toBeInTheDocument();
+        expect(await screen.findByText("Behavior Segments")).toBeInTheDocument();
+        expect(await screen.findByText("Family Pairings")).toBeInTheDocument();
+        expect(await screen.findByText("Install Detail")).toBeInTheDocument();
+        expect(await screen.findByText("Tool Performance")).toBeInTheDocument();
+        expect(await screen.findByText("Activation")).toBeInTheDocument();
+        expect(await screen.findByText("Session Quality")).toBeInTheDocument();
+        expect(await screen.findByText("Async Outcomes")).toBeInTheDocument();
+        expect(await screen.findByText("App Errors")).toBeInTheDocument();
+        expect((await screen.findAllByText("install-a")).length).toBeGreaterThan(0);
+        expect(await screen.findByText("EXTENSION_HANDSHAKE_FAILED")).toBeInTheDocument();
         expect(await screen.findByRole("button", { name: "observe" })).toBeInTheDocument();
         expect(await screen.findByText("errors")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "generate" })).toBeInTheDocument();
@@ -279,6 +606,24 @@ describe("App dashboard route", () => {
                             ],
                         },
                     ],
+                    installs: [],
+                    segments: [],
+                    sessionDepth: [],
+                    coUsage: [],
+                    toolPerformance: [],
+                    activation: {
+                        installCount: 0,
+                        activatedInstallCount: 0,
+                        activationRate: 0,
+                    },
+                    sessionQuality: {
+                        avgDurationS: 0,
+                        avgToolCalls: 0,
+                        buckets: [],
+                    },
+                    asyncOutcomes: [],
+                    appErrors: [],
+                    selectedInstall: null,
                 }),
             },
         ]);

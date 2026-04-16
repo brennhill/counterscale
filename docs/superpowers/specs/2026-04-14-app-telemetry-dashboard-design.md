@@ -106,21 +106,24 @@ Relevant row types:
 
 - per day, count distinct `blob4`
 - source rows:
-  - `metric`
-  - `lifecycle`
+  - `tool_summary`
+  - `tool_call`
+  - `session_start`
+  - `session_end`
+  - `app_error`
 
-This ensures activity is counted even if a session emitted lifecycle rows before any tool metrics.
+This ensures activity is counted even if a session only emitted session or runtime telemetry before any tool summary rows.
 
 ### Family Usage Table
 
-For rows where `blob2 = 'metric'`, grouped by `blob10`:
+For rows where `blob2 = 'tool_summary'`, grouped by `blob10`:
 
 - total usage = `SUM(double2)`
 - unique installs = `COUNT(DISTINCT blob4)`
 
 ### Subtool Breakdown
 
-For rows where `blob2 = 'metric'`, grouped by family + name:
+For rows where `blob2 = 'tool_summary'`, grouped by family + name:
 
 - family = `blob10`
 - name = `blob11`

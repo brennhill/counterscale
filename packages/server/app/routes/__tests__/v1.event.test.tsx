@@ -197,6 +197,260 @@ describe("v1/event route", () => {
         expect(writeDataPoint.mock.calls[0][0].doubles).toEqual([0, 0, 1]);
     });
 
+    test("accepts tool_call beacons and writes one normalized row", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "tool_call",
+                iid: "a1b2c3d4e5f6",
+                sid: "8F3C1E4B7D92A6FF",
+                ts: "2026-04-15T08:10:00Z",
+                v: "0.8.2",
+                os: "darwin-arm64",
+                channel: "stable",
+                family: "observe",
+                name: "page",
+                tool: "observe:page",
+                outcome: "success",
+                latency_ms: 45,
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(202);
+        expect(writeDataPoint).toHaveBeenCalledTimes(1);
+    });
+
+    test("accepts app_error beacons and writes one normalized row", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "app_error",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                ts: "2026-04-15T08:11:00Z",
+                v: "0.8.2",
+                os: "darwin-arm64",
+                channel: "stable",
+                error_kind: "integration",
+                error_code: "EXTENSION_HANDSHAKE_FAILED",
+                severity: "error",
+                source: "extension",
+                retryable: true,
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(202);
+        expect(writeDataPoint).toHaveBeenCalledTimes(1);
+    });
+
+    test("accepts session_start and session_end beacons", async () => {
+        const writeDataPoint = vi.fn();
+        const startRequest = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "session_start",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                ts: "2026-04-15T08:00:00Z",
+                v: "0.8.2",
+                os: "darwin-arm64",
+                channel: "stable",
+                reason: "first_activity",
+            }),
+        });
+        const endRequest = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "session_end",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                ts: "2026-04-15T08:35:00Z",
+                v: "0.8.2",
+                os: "darwin-arm64",
+                channel: "stable",
+                reason: "timeout",
+                duration_s: 1500,
+                tool_calls: 28,
+                active_window_m: 25,
+            }),
+        });
+
+        const startResponse = await action({
+            request: startRequest,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+        const endResponse = await action({
+            request: endRequest,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(startResponse.status).toBe(202);
+        expect(endResponse.status).toBe(202);
+        expect(writeDataPoint).toHaveBeenCalledTimes(2);
+    });
+
+    test("accepts current Kaboom short session_end beacons", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "session_end",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                ts: "2026-04-15T08:35:00Z",
+                v: "0.8.2",
+                os: "darwin-arm64",
+                channel: "dev",
+                reason: "shutdown",
+                duration_s: 0,
+                tool_calls: 1,
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(202);
+        expect(writeDataPoint).toHaveBeenCalledTimes(1);
+    });
+
+    test("accepts structured usage_summary beacons and flattens tool and async rows", async () => {
+        const writeDataPoint = vi.fn();
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "usage_summary",
+                iid: "a1b2c3d4e5f6",
+                sid: "8f3c1e4b7d92a6ff",
+                ts: "2026-04-15T08:35:00Z",
+                v: "0.8.2",
+                os: "darwin-arm64",
+                channel: "stable",
+                window_m: 5,
+                tool_stats: [
+                    {
+                        family: "observe",
+                        name: "page",
+                        tool: "observe:page",
+                        count: 12,
+                        error_count: 0,
+                        latency_avg_ms: 45,
+                        latency_max_ms: 230,
+                    },
+                    {
+                        family: "interact",
+                        name: "click",
+                        tool: "interact:click",
+                        count: 5,
+                        error_count: 1,
+                        latency_avg_ms: 1200,
+                        latency_max_ms: 3500,
+                    },
+                ],
+                async_outcomes: {
+                    complete: 7,
+                    error: 2,
+                    timeout: 1,
+                },
+                session_depth: 28,
+            }),
+        });
+
+        const response = await action({
+            request,
+            context: {
+                cloudflare: {
+                    env: {
+                        APP_TELEMETRY_AE: {
+                            writeDataPoint,
+                        },
+                    },
+                },
+            },
+            params: {},
+        });
+
+        expect(response.status).toBe(202);
+        expect(writeDataPoint).toHaveBeenCalledTimes(5);
+    });
+
     test("accepts allowed metric families with open names", async () => {
         const writeDataPoint = vi.fn();
         const request = new Request("https://example.com/v1/event", {

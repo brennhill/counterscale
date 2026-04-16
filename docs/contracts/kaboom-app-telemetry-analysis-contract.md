@@ -1,218 +1,77 @@
-# Kaboom App Telemetry Analysis Contract
+# Kaboom App Telemetry Contract
 
 Date: 2026-04-15
 
-This document extends the current Kaboom telemetry contract so the app can support:
+This document is the canonical telemetry contract for Kaboom app analytics sent to `POST /v1/event`.
 
+Only the event types and fields defined here are part of the analytics contract. Unknown extra fields may be ignored by the ingest service and must not be used for analysis.
+
+## Goals
+
+This contract is designed to support:
+
+- monthly active installs
 - install-level drilldown
-- session reconstruction
-- co-usage analysis
-- session flow analysis
-- behavioral segmentation
-- clustering over time
+- tool and subtool usage
+- first-use and activation analysis
+- session depth and session duration
+- per-tool latency and error rates
+- async outcome analysis
+- co-usage and workflow analysis
+- product/runtime reliability analysis
 
-This is an **additive** contract. Existing `usage_summary` and lifecycle beacons remain valid.
+## Endpoint
 
-## Principles
+Kaboom sends app telemetry to:
 
-- Anonymous by default
-- No user identifiers beyond anonymous `install_id`
-- No raw document, prompt, or page content
-- Keep aggregate `usage_summary` for cheap rollups
-- Add explicit event records only where they unlock behavior analysis
-
-## Existing Required Envelope
-
-All telemetry beacons already include:
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| `event` | string | yes | Event name |
-| `v` | string | yes | App version |
-| `os` | string | yes | OS / platform string |
-| `iid` | string | yes | Install ID |
-| `sid` | string | yes | Session ID |
-
-## New Required Envelope Fields
-
-These should be added to **all** beacons:
-
-| Field | Type | Required | Example | Why |
-|-------|------|----------|---------|-----|
-| `ts` | string | yes | `2026-04-15T07:10:00Z` | Required for ordered timelines and session flow analysis |
-| `channel` | string | yes | `stable`, `beta`, `dev`, `local` | Needed to compare adoption and churn by release channel |
-
-## New Optional Envelope Fields
-
-These should be sent when available:
-
-| Field | Type | Required | Example | Why |
-|-------|------|----------|---------|-----|
-| `screen` | string | no | `inbox`, `review`, `recording` | Enables view-level behavior analysis |
-| `workspace_bucket` | string | no | `none`, `1`, `2_5`, `6_20`, `21_plus` | Approximate workload/project-size segmentation without leaking precise counts |
-| `arch` | string | no | `arm64`, `x64` | Platform detail |
-
-## Event Types
-
-### 1. `usage_summary` (keep)
-
-Current 5-minute aggregate beacon. Keep this unchanged except for the new common envelope fields.
-
-Example:
-
-```json
-{
-  "event": "usage_summary",
-  "ts": "2026-04-15T07:10:00Z",
-  "v": "0.8.1",
-  "os": "darwin-arm64",
-  "channel": "stable",
-  "iid": "a1b2c3d4e5f6",
-  "sid": "8f3c1e4b7d92a6ff",
-  "screen": "inbox",
-  "workspace_bucket": "2_5",
-  "window_m": 5,
-  "props": {
-    "observe:errors": 5,
-    "interact:click": 2,
-    "generate:test": 1,
-    "ext:screenshot": 1
-  }
-}
+```text
+POST /v1/event
+Content-Type: application/json
 ```
 
-### 2. `session_start` (new)
+Production URL:
 
-Emit when a new session is minted.
-
-Additional fields:
-
-| Field | Type | Required | Example |
-|-------|------|----------|---------|
-| `reason` | string | yes | `first_activity`, `startup`, `post_timeout` |
-
-Example:
-
-```json
-{
-  "event": "session_start",
-  "ts": "2026-04-15T07:00:00Z",
-  "v": "0.8.1",
-  "os": "darwin-arm64",
-  "channel": "stable",
-  "iid": "a1b2c3d4e5f6",
-  "sid": "8f3c1e4b7d92a6ff",
-  "screen": "inbox",
-  "reason": "first_activity"
-}
+```text
+https://t.gokaboom.dev/v1/event
 ```
 
-### 3. `session_end` (new)
+Successful ingestion returns `202 Accepted`.
 
-Emit when a session closes due to timeout or clean shutdown.
+## Shared Envelope
 
-Additional fields:
-
-| Field | Type | Required | Example |
-|-------|------|----------|---------|
-| `reason` | string | yes | `timeout`, `shutdown`, `restart` |
-| `duration_s` | integer | yes | `1642` |
-| `active_window_m` | integer | no | `25` |
-
-Example:
-
-```json
-{
-  "event": "session_end",
-  "ts": "2026-04-15T07:27:22Z",
-  "v": "0.8.1",
-  "os": "darwin-arm64",
-  "channel": "stable",
-  "iid": "a1b2c3d4e5f6",
-  "sid": "8f3c1e4b7d92a6ff",
-  "reason": "timeout",
-  "duration_s": 1642,
-  "active_window_m": 25
-}
-```
-
-### 4. `tool_event` (new)
-
-Emit once per tracked tool or extension action. This is the critical addition for flow analysis.
-
-Additional fields:
+Every event must include the shared envelope.
 
 | Field | Type | Required | Example | Notes |
 |-------|------|----------|---------|-------|
-| `family` | string | yes | `observe` | One of `observe`, `interact`, `generate`, `analyze`, `configure`, `ext` |
-| `name` | string | yes | `errors` | Open-ended subtool/action name |
-| `source` | string | yes | `mcp`, `extension` | Event origin |
-| `entrypoint` | string | no | `shortcut`, `context_menu`, `popup`, `chat` | Optional acquisition/use-path hint |
-| `count` | integer | no | `1` | Defaults to `1`; use only if batching identical events |
-| `result` | string | no | `success`, `error`, `cancelled` | Useful for quality and friction analysis |
+| `event` | string | yes | `tool_call` | Event type |
+| `iid` | string | yes | `e41ce1f047c8` | Stable install ID |
+| `sid` | string | yes | `8510f6ce8ca743c2` | Session ID, 16-character hex |
+| `ts` | string | yes | `2026-04-15T08:10:00Z` | ISO-8601 UTC timestamp |
+| `v` | string | yes | `0.8.2` | App version |
+| `os` | string | yes | `darwin-arm64` | OS/platform identifier |
+| `channel` | string | yes | `stable` | Release channel |
+| `screen` | string | no | `review` | Current visible surface |
+| `workspace_bucket` | string | no | `2_5` | Approximate workload/project-size bucket |
 
-Example:
+Notes:
 
-```json
-{
-  "event": "tool_event",
-  "ts": "2026-04-15T07:03:14Z",
-  "v": "0.8.1",
-  "os": "darwin-arm64",
-  "channel": "stable",
-  "iid": "a1b2c3d4e5f6",
-  "sid": "8f3c1e4b7d92a6ff",
-  "screen": "review",
-  "workspace_bucket": "2_5",
-  "family": "observe",
-  "name": "errors",
-  "source": "mcp",
-  "entrypoint": "chat",
-  "count": 1,
-  "result": "success"
-}
-```
+- Kaboom is the only producer. There is no `app` field.
+- `iid` must remain stable for one install across launches and upgrades.
+- `sid` must remain stable for one session and rotate on session boundaries.
+- `sid` is normalized as lowercase hex by the ingest service.
+- `ts` is the app event time. Analytics Engine write time must not be used as a substitute.
 
-### 5. `screen_view` (new, optional)
+## Tool Identity
 
-Emit only if the app has meaningful navigable surfaces and view-level analysis is useful.
-
-Additional fields:
+All tool-oriented events use the same identity model.
 
 | Field | Type | Required | Example |
 |-------|------|----------|---------|
-| `screen` | string | yes | `inbox`, `review`, `settings`, `recording` |
-| `ref_screen` | string | no | `inbox` |
+| `family` | string | yes | `observe` |
+| `name` | string | yes | `page` |
+| `tool` | string | yes | `observe:page` |
 
-Example:
-
-```json
-{
-  "event": "screen_view",
-  "ts": "2026-04-15T07:04:20Z",
-  "v": "0.8.1",
-  "os": "darwin-arm64",
-  "channel": "stable",
-  "iid": "a1b2c3d4e5f6",
-  "sid": "8f3c1e4b7d92a6ff",
-  "screen": "review",
-  "ref_screen": "inbox"
-}
-```
-
-### 6. Existing lifecycle events (keep)
-
-Keep:
-
-- `daemon_start`
-- `extension_connect`
-- `extension_version_mismatch`
-
-These should also include `ts`, `channel`, and optional `screen` when meaningful.
-
-## Allowed Families
-
-`tool_event.family` and `usage_summary.props` families remain:
+Allowed families:
 
 - `observe`
 - `interact`
@@ -221,60 +80,414 @@ These should also include `ts`, `channel`, and optional `screen` when meaningful
 - `configure`
 - `ext`
 
-Names remain open-ended but non-empty.
+Rules:
 
-## What This Unlocks
+- `name` is open-ended but must be non-empty.
+- `tool` must equal `family:name`.
 
-| Analysis | Existing contract | New additions needed |
-|----------|-------------------|----------------------|
-| Install table | mostly yes | channel, workspace bucket improve it |
-| Install detail page | partial | `session_start`, `session_end`, `tool_event` |
-| Segment view | partial | channel, workspace bucket, session boundaries |
-| Co-usage matrix | yes at coarse level | `tool_event` for better fidelity |
-| Session flow analysis | no | `tool_event` + `ts` |
-| Clustering | partial | feature-rich events + historical snapshots |
+## Event Types
 
-## Rollout Guidance
+The supported event set is:
 
-### Stage 1
-
-Add to all current beacons:
-
-- `ts`
-- `channel`
-- optional `screen`
-- optional `workspace_bucket`
-
-### Stage 2
-
-Add:
-
+- `tool_call`
+- `first_tool_call`
 - `session_start`
 - `session_end`
+- `usage_summary`
+- `app_error`
 
-### Stage 3
+### `tool_call`
 
-Add:
+Emit one event per meaningful tool invocation or command action.
 
-- `tool_event`
+| Field | Type | Required | Example | Notes |
+|-------|------|----------|---------|-------|
+| `family` | string | yes | `observe` | Tool family |
+| `name` | string | yes | `page` | Tool/subtool name |
+| `tool` | string | yes | `observe:page` | Combined tool key |
+| `outcome` | string | yes | `success` | One of `success`, `error`, `cancelled`, `timeout`, `expired` |
+| `latency_ms` | integer | no | `45` | End-to-end latency |
+| `entrypoint` | string | no | `click` | Use-path hint |
+| `source` | string | no | `ui` | Runtime origin such as `ui`, `extension`, `mcp`, `background` |
+| `async` | boolean | no | `true` | Whether the command was async |
+| `async_outcome` | string | no | `timeout` | One of `complete`, `error`, `timeout`, `expired`, `cancelled` |
 
-### Stage 4
+Example:
 
-Add only if useful:
+```json
+{
+  "event": "tool_call",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:10:01Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "family": "observe",
+  "name": "page",
+  "tool": "observe:page",
+  "outcome": "success",
+  "latency_ms": 45,
+  "source": "ui"
+}
+```
 
-- `screen_view`
+### `first_tool_call`
 
-## Privacy Guardrails
+Emit once per install, on the first tool call ever observed for that install.
+
+| Field | Type | Required | Example |
+|-------|------|----------|---------|
+| `family` | string | yes | `observe` |
+| `name` | string | yes | `page` |
+| `tool` | string | yes | `observe:page` |
+
+Example:
+
+```json
+{
+  "event": "first_tool_call",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:10:01Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "family": "observe",
+  "name": "page",
+  "tool": "observe:page"
+}
+```
+
+### `session_start`
+
+Emit when a new session begins.
+
+| Field | Type | Required | Example | Notes |
+|-------|------|----------|---------|-------|
+| `reason` | string | yes | `first_activity` | One of `first_activity`, `startup`, `post_timeout`, `resume` |
+
+Example:
+
+```json
+{
+  "event": "session_start",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:10:00Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "reason": "first_activity"
+}
+```
+
+### `session_end`
+
+Emit when a session closes or rotates.
+
+| Field | Type | Required | Example | Notes |
+|-------|------|----------|---------|-------|
+| `reason` | string | yes | `timeout` | One of `timeout`, `shutdown`, `restart`, `crash`, `background` |
+| `duration_s` | integer | yes | `1500` | Non-negative integer. `0` is valid for very short sessions. |
+| `tool_calls` | integer | yes | `28` | Positive integer |
+| `active_window_m` | integer | no | `25` | Optional active minutes estimate |
+
+Example:
+
+```json
+{
+  "event": "session_end",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:35:00Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "reason": "shutdown",
+  "duration_s": 1500,
+  "tool_calls": 28
+}
+```
+
+### `usage_summary`
+
+Emit a structured rollup every 5 minutes when there has been activity.
+
+`usage_summary` is a rollup event. It is not a replacement for `tool_call`.
+
+| Field | Type | Required | Example | Notes |
+|-------|------|----------|---------|-------|
+| `window_m` | integer | yes | `5` | Positive integer |
+| `tool_stats` | array | yes | see below | One entry per tool in the window |
+| `async_outcomes` | object | no | see below | Aggregate async outcome counts |
+
+Each `tool_stats` entry:
+
+| Field | Type | Required | Example |
+|-------|------|----------|---------|
+| `family` | string | yes | `observe` |
+| `name` | string | yes | `page` |
+| `tool` | string | yes | `observe:page` |
+| `count` | integer | yes | `12` |
+| `error_count` | integer | no | `1` |
+| `latency_avg_ms` | integer | no | `45` |
+| `latency_max_ms` | integer | no | `230` |
+
+Allowed `async_outcomes` keys:
+
+- `complete`
+- `error`
+- `timeout`
+- `expired`
+- `cancelled`
+
+Example:
+
+```json
+{
+  "event": "usage_summary",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:35:00Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "window_m": 5,
+  "tool_stats": [
+    {
+      "family": "observe",
+      "name": "page",
+      "tool": "observe:page",
+      "count": 12,
+      "error_count": 0,
+      "latency_avg_ms": 45,
+      "latency_max_ms": 230
+    },
+    {
+      "family": "interact",
+      "name": "click",
+      "tool": "interact:click",
+      "count": 5,
+      "error_count": 1,
+      "latency_avg_ms": 1200,
+      "latency_max_ms": 3500
+    }
+  ],
+  "async_outcomes": {
+    "complete": 7,
+    "error": 1,
+    "timeout": 1
+  }
+}
+```
+
+### `app_error`
+
+Emit `app_error` for product/runtime failures that are not naturally modeled as a failed `tool_call`.
+
+Use `tool_call` with `outcome = error` for normal user-invoked tool failures.
+
+| Field | Type | Required | Example | Notes |
+|-------|------|----------|---------|-------|
+| `error_kind` | string | yes | `internal` | Broad error class |
+| `error_code` | string | yes | `DAEMON_PANIC` | Stable short code |
+| `severity` | string | yes | `fatal` | One of `warning`, `error`, `fatal` |
+| `source` | string | no | `daemon` | Runtime origin |
+| `retryable` | boolean | no | `true` | Whether the app could retry automatically |
+
+Recommended `error_kind` values:
+
+- `network`
+- `auth`
+- `validation`
+- `timeout`
+- `internal`
+- `integration`
+- `unknown`
+
+Example:
+
+```json
+{
+  "event": "app_error",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:11:00Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "error_kind": "internal",
+  "error_code": "DAEMON_PANIC",
+  "severity": "fatal",
+  "source": "daemon"
+}
+```
+
+## Emission Rules
+
+### Install identity
+
+- Generate `iid` once per install.
+- Persist it locally.
+- Keep it stable across launches and upgrades.
+
+### Session identity
+
+- Generate a new `sid` when a session begins.
+- Rotate it after 30 minutes of inactivity.
+- Rotate it when a session ends because of timeout, shutdown, restart, crash, or backgrounding.
+
+### Event emission
+
+- Emit `session_start` on the first activity in a new session.
+- Emit `tool_call` for each meaningful tool invocation.
+- Emit `first_tool_call` once per install ever.
+- Emit `session_end` when the session closes.
+- Emit `usage_summary` every 5 minutes when there has been activity in the window.
+- Emit `app_error` only for runtime/product failures that are not one ordinary failed tool call.
+
+### Privacy
 
 Do not send:
 
-- raw prompt content
-- raw page content
-- file paths
-- repository names
-- user names
-- email addresses
-- project identifiers
-- exact workspace/document counts if they can be sensitive
+- prompts
+- file contents
+- project names
+- URLs
+- stack traces
+- user identifiers
+- anything that can identify a person or project
 
-Use buckets and enumerations instead of raw values whenever a field could reveal too much detail.
+## Storage Model In Cloudflare Analytics Engine
+
+The worker flattens incoming telemetry into normalized Analytics Engine rows.
+
+Current row types:
+
+- `tool_call`
+- `first_tool_call`
+- `session_start`
+- `session_end`
+- `tool_summary`
+- `async_outcome`
+- `app_error`
+
+Flattening rules:
+
+- one `tool_call` row per `tool_call` event
+- one `first_tool_call` row per `first_tool_call` event
+- one `session_start` row per `session_start` event
+- one `session_end` row per `session_end` event
+- one `app_error` row per `app_error` event
+- one `tool_summary` row per `usage_summary.tool_stats[]` entry
+- one `async_outcome` row per `usage_summary.async_outcomes` key
+
+Blob layout in `kaboomTelemetry`:
+
+| Slot | Meaning |
+|------|---------|
+| `blob1` | app id (`kaboom`) |
+| `blob2` | row type |
+| `blob3` | event name |
+| `blob4` | install id |
+| `blob5` | session id |
+| `blob6` | app version |
+| `blob7` | os |
+| `blob8` | tool |
+| `blob9` | source or reason |
+| `blob10` | family |
+| `blob11` | name |
+| `blob12` | channel |
+| `blob13` | entrypoint |
+| `blob14` | outcome |
+| `blob15` | async outcome |
+| `blob16` | error kind |
+| `blob17` | error code |
+| `blob18` | severity |
+| `blob19` | screen |
+| `blob20` | workspace bucket |
+
+Double layout in `kaboomTelemetry`:
+
+| Slot | Meaning |
+|------|---------|
+| `double1` | event time in ms since epoch |
+| `double2` | count |
+| `double3` | window minutes |
+| `double4` | latency ms |
+| `double5` | latency average ms |
+| `double6` | latency max ms |
+| `double7` | error count |
+| `double8` | duration seconds |
+| `double9` | tool calls |
+| `double10` | active window minutes |
+| `double11` | retryable (`1` or `0`) |
+
+Index layout:
+
+- `index1` stores `iid`
+
+Notes:
+
+- `tool_call`, `first_tool_call`, `session_start`, `session_end`, and `app_error` all write `count = 1`.
+- `session_start.reason`, `session_end.reason`, and `app_error.source` are stored in `blob9`.
+- `ts` is stored as `double1` and should be used for v2 time filtering.
+
+## Analysis Mapping
+
+| Question | Primary source |
+|----------|----------------|
+| Monthly active installs | distinct `iid` over range |
+| Tool popularity | `tool_call` and `tool_summary` |
+| Tool latency | `tool_call.latency_ms` and `tool_summary.latency_*` |
+| Error rate by tool | `tool_call.outcome = error` and `tool_summary.error_count` |
+| Async reliability | `tool_call.async_outcome` and `async_outcome` rows |
+| First-use funnel | `first_tool_call` |
+| Session depth | `session_end.tool_calls` |
+| Session length | `session_end.duration_s` |
+| Install-level drilldown | all rows filtered by `iid` |
+| Product/runtime failures | `app_error` |
+
+## Reference Payloads
+
+Minimal `tool_call`:
+
+```json
+{
+  "event": "tool_call",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:10:01Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "family": "observe",
+  "name": "page",
+  "tool": "observe:page",
+  "outcome": "success"
+}
+```
+
+Minimal `usage_summary`:
+
+```json
+{
+  "event": "usage_summary",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:35:00Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "window_m": 5,
+  "tool_stats": [
+    {
+      "family": "observe",
+      "name": "page",
+      "tool": "observe:page",
+      "count": 12
+    }
+  ]
+}
+```

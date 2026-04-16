@@ -179,23 +179,35 @@ Check the root:
 curl -i https://t.gokaboom.dev/
 ```
 
-Send a lifecycle beacon:
+Send a `tool_call` beacon:
 
 ```bash
 curl -i -X POST https://t.gokaboom.dev/v1/event \
   -H 'content-type: application/json' \
-  --data '{"event":"daemon_start","v":"0.8.1","os":"darwin-arm64","iid":"a1b2c3d4e5f6","sid":"8f3c1e4b7d92a6ff"}'
+  --data '{"event":"tool_call","iid":"a1b2c3d4e5f6","sid":"8f3c1e4b7d92a6ff","ts":"2026-04-15T08:10:01Z","v":"0.8.2","os":"darwin-arm64","channel":"stable","family":"observe","name":"page","tool":"observe:page","outcome":"success","latency_ms":45}'
 ```
 
-Send a usage summary beacon:
+Send a structured `usage_summary` beacon:
 
 ```bash
 curl -i -X POST https://t.gokaboom.dev/v1/event \
   -H 'content-type: application/json' \
-  --data '{"event":"usage_summary","v":"0.8.1","os":"darwin-arm64","iid":"a1b2c3d4e5f6","sid":"8f3c1e4b7d92a6ff","window_m":5,"props":{"observe:errors":5,"interact:click":2,"ext:video":1}}'
+  --data '{"event":"usage_summary","iid":"a1b2c3d4e5f6","sid":"8f3c1e4b7d92a6ff","ts":"2026-04-15T08:15:00Z","v":"0.8.2","os":"darwin-arm64","channel":"stable","window_m":5,"tool_stats":[{"family":"observe","name":"page","tool":"observe:page","count":12,"latency_avg_ms":45,"latency_max_ms":230},{"family":"interact","name":"click","tool":"interact:click","count":5,"error_count":1,"latency_avg_ms":1200,"latency_max_ms":3500}],"async_outcomes":{"complete":7,"error":1,"timeout":1}}'
 ```
 
-Expected result for both POST requests: `202 Accepted`
+Send an `app_error` beacon:
+
+```bash
+curl -i -X POST https://t.gokaboom.dev/v1/event \
+  -H 'content-type: application/json' \
+  --data '{"event":"app_error","iid":"a1b2c3d4e5f6","sid":"8f3c1e4b7d92a6ff","ts":"2026-04-15T08:16:00Z","v":"0.8.2","os":"darwin-arm64","channel":"stable","error_kind":"internal","error_code":"DAEMON_PANIC","severity":"fatal","source":"daemon"}'
+```
+
+Expected result for all POST requests: `202 Accepted`
+
+Canonical contract reference:
+
+- [docs/contracts/kaboom-app-telemetry-analysis-contract.md](/Users/brenn/dev/counterscale/docs/contracts/kaboom-app-telemetry-analysis-contract.md)
 
 ## 8. Verify Stored Telemetry
 
@@ -205,29 +217,55 @@ Cloudflare Analytics Engine SQL endpoint:
 curl -sS "https://api.cloudflare.com/client/v4/accounts/3366cf24ce29f1d6380754d51efab0cf/analytics_engine/sql" \
   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   -H "Content-Type: text/plain" \
-  --data "SELECT blob4 AS install_id, blob2 AS row_type, blob3 AS event_name, blob8 AS metric_key, blob12 AS beacon_id, double1 AS window_m, double2 AS metric_count, double3 AS row_count FROM kaboomTelemetry WHERE blob4 = 'a1b2c3d4e5f6' LIMIT 20"
+  --data "SELECT blob2 AS row_type, blob3 AS event_name, blob4 AS install_id, blob5 AS session_id, blob8 AS tool, blob10 AS family, blob11 AS name, blob14 AS outcome, blob15 AS async_outcome, blob16 AS error_kind, blob17 AS error_code, double1 AS event_time_ms, double2 AS count, double3 AS window_m, double4 AS latency_ms, double5 AS latency_avg_ms, double6 AS latency_max_ms, double7 AS error_count, double8 AS duration_s, double9 AS tool_calls FROM kaboomTelemetry WHERE blob4 = 'a1b2c3d4e5f6' ORDER BY double1 DESC LIMIT 20"
 ```
 
 Blob layout in `kaboomTelemetry`:
 
-- `blob1`: app id
+- `blob1`: app id (`kaboom`)
 - `blob2`: row type
 - `blob3`: event name
 - `blob4`: install id
 - `blob5`: session id
 - `blob6`: app version
 - `blob7`: os
-- `blob8`: metric key
-- `blob9`: metric source
-- `blob10`: metric family
-- `blob11`: metric name
-- `blob12`: beacon id
+- `blob8`: tool
+- `blob9`: source or reason
+- `blob10`: family
+- `blob11`: name
+- `blob12`: channel
+- `blob13`: entrypoint
+- `blob14`: outcome
+- `blob15`: async outcome
+- `blob16`: error kind
+- `blob17`: error code
+- `blob18`: severity
+- `blob19`: screen
+- `blob20`: workspace bucket
 
 Doubles:
 
-- `double1`: `window_m`
-- `double2`: metric count
-- `double3`: row count
+- `double1`: `event_time_ms`
+- `double2`: `count`
+- `double3`: `window_m`
+- `double4`: `latency_ms`
+- `double5`: `latency_avg_ms`
+- `double6`: `latency_max_ms`
+- `double7`: `error_count`
+- `double8`: `duration_s`
+- `double9`: `tool_calls`
+- `double10`: `active_window_m`
+- `double11`: `retryable`
+
+Current row types:
+
+- `tool_call`
+- `first_tool_call`
+- `session_start`
+- `session_end`
+- `tool_summary`
+- `async_outcome`
+- `app_error`
 
 ## Notes
 

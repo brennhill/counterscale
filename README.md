@@ -158,6 +158,71 @@ The server module is designed for backend applications and differs from the clie
 - Requires explicit URL and hostname parameters
 - Fire-and-forget - tracking errors won't throw exceptions
 
+## Track Kaboom App Telemetry
+
+This deployment also supports Kaboom app telemetry on a separate endpoint and dataset from web pageviews.
+
+- Web analytics: `GET /collect` and `GET /tracker.js`
+- App telemetry: `POST /v1/event`
+
+The canonical Kaboom app contract is documented in [docs/contracts/kaboom-app-telemetry-analysis-contract.md](docs/contracts/kaboom-app-telemetry-analysis-contract.md).
+
+Supported app event types:
+
+- `tool_call`
+- `first_tool_call`
+- `session_start`
+- `session_end`
+- `usage_summary`
+- `app_error`
+
+Minimal `tool_call` example:
+
+```json
+{
+  "event": "tool_call",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:10:01Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "family": "observe",
+  "name": "page",
+  "tool": "observe:page",
+  "outcome": "success"
+}
+```
+
+Minimal structured `usage_summary` example:
+
+```json
+{
+  "event": "usage_summary",
+  "iid": "e41ce1f047c8",
+  "sid": "8510f6ce8ca743c2",
+  "ts": "2026-04-15T08:35:00Z",
+  "v": "0.8.2",
+  "os": "darwin-arm64",
+  "channel": "stable",
+  "window_m": 5,
+  "tool_stats": [
+    {
+      "family": "observe",
+      "name": "page",
+      "tool": "observe:page",
+      "count": 12
+    }
+  ]
+}
+```
+
+Production endpoint example:
+
+```text
+https://t.gokaboom.dev/v1/event
+```
+
 ## Upgrading
 
 For most releases, upgrading is as simple as re-running the CLI installer:
