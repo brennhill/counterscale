@@ -8,6 +8,7 @@ export const TELEMETRY_ROW_TYPES = {
     toolSummary: "tool_summary",
     asyncOutcome: "async_outcome",
     appError: "app_error",
+    malformed: "malformed",
     lifecycle: "lifecycle",
 } as const;
 
@@ -27,7 +28,7 @@ export const TELEMETRY_BLOB = {
     family: 9,
     name: 10,
     channel: 11,
-    entrypoint: 12,
+    llm: 12,
     outcome: 13,
     asyncOutcome: 14,
     errorKind: 15,
@@ -62,8 +63,11 @@ export type TelemetryRowFields = {
     family?: string,
     name?: string,
     tool?: string,
+    rawPayloadPreview?: string,
+    rawPayloadStorageKey?: string,
     source?: string,
-    entrypoint?: string,
+    llm?: string,
+    validationErrors?: string,
     outcome?: string,
     asyncOutcome?: string,
     errorKind?: string,
@@ -103,17 +107,17 @@ export function buildTelemetryRow(
     blobs[TELEMETRY_BLOB.sessionId] = fields.sid;
     blobs[TELEMETRY_BLOB.version] = fields.v;
     blobs[TELEMETRY_BLOB.os] = fields.os;
-    blobs[TELEMETRY_BLOB.tool] = fields.tool || "";
+    blobs[TELEMETRY_BLOB.tool] = fields.rawPayloadPreview || fields.tool || "";
     blobs[TELEMETRY_BLOB.source] = fields.source || "";
     blobs[TELEMETRY_BLOB.family] = fields.family || "";
-    blobs[TELEMETRY_BLOB.name] = fields.name || "";
+    blobs[TELEMETRY_BLOB.name] = fields.rawPayloadStorageKey || fields.name || "";
     blobs[TELEMETRY_BLOB.channel] = fields.channel;
-    blobs[TELEMETRY_BLOB.entrypoint] = fields.entrypoint || "";
+    blobs[TELEMETRY_BLOB.llm] = fields.llm || "";
     blobs[TELEMETRY_BLOB.outcome] = fields.outcome || "";
     blobs[TELEMETRY_BLOB.asyncOutcome] = fields.asyncOutcome || "";
     blobs[TELEMETRY_BLOB.errorKind] = fields.errorKind || "";
     blobs[TELEMETRY_BLOB.errorCode] = fields.errorCode || "";
-    blobs[TELEMETRY_BLOB.severity] = fields.severity || "";
+    blobs[TELEMETRY_BLOB.severity] = fields.validationErrors || fields.severity || "";
     blobs[TELEMETRY_BLOB.screen] = fields.screen || "";
     blobs[TELEMETRY_BLOB.workspaceBucket] = fields.workspaceBucket || "";
 

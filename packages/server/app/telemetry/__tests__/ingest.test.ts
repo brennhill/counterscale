@@ -5,7 +5,11 @@ import {
     TELEMETRY_ROW_TYPES,
     buildTelemetryRow,
 } from "../schema";
-import { parseAppTelemetryBeacon, writeAppTelemetryBeacon } from "../ingest";
+import {
+    ingestAppTelemetryRequest,
+    parseAppTelemetryBeacon,
+    writeAppTelemetryBeacon,
+} from "../ingest";
 
 describe("telemetry schema", () => {
     test("builds normalized tool_call rows with explicit client event time", () => {
@@ -38,6 +42,191 @@ describe("telemetry schema", () => {
 });
 
 describe("telemetry ingest", () => {
+    test("writes one malformed row for invalid JSON bodies", async () => {
+        const writeDataPoint = vi.fn();
+        const put = vi.fn(async (key: string) => ({ key }));
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: '{"event":',
+        });
+
+        const response = await ingestAppTelemetryRequest(
+            request,
+            { writeDataPoint } as any,
+            { put } as any,
+        );
+
+        expect(response.status).toBe(202);
+        expect(put).toHaveBeenCalledTimes(1);
+        expect(writeDataPoint).toHaveBeenCalledTimes(1);
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.rowType]).toBe(
+            "malformed",
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.source]).toBe(
+            "ingest",
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.tool]).toContain(
+            '{"event":',
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.name]).toContain(
+            "telemetry-malformed/",
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.severity]).toContain(
+            "JSON",
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.errorKind]).toBe(
+            "malformed_payload",
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.errorCode]).toBe(
+            "json_parse_failed",
+        );
+        expect(writeDataPoint.mock.calls[0][0].doubles[TELEMETRY_DOUBLE.count]).toBe(1);
+    });
+
+    test("writes a malformed row when the request body cannot be read", async () => {
+        const writeDataPoint = vi.fn();
+        const put = vi.fn();
+        const request = {
+            text: vi.fn().mockRejectedValue(new Error("stream locked")),
+        } as any;
+
+        const response = await ingestAppTelemetryRequest(
+            request,
+            { writeDataPoint } as any,
+            { put } as any,
+        );
+
+        expect(response.status).toBe(202);
+        expect(put).not.toHaveBeenCalled();
+        expect(writeDataPoint).toHaveBeenCalledTimes(1);
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.rowType]).toBe(
+            "malformed",
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.errorCode]).toBe(
+            "body_read_failed",
+        );
+    });
+
+    test("archives malformed raw payloads before writing salvaged analytics rows", async () => {
+        const order: string[] = [];
+        const writeDataPoint = vi.fn(() => {
+            order.push("ae");
+        });
+        const put = vi.fn(async (key: string) => {
+            order.push("r2");
+            return { key };
+        });
+        const requestBody = JSON.stringify({
+            event: "usage_summary",
+            iid: "install-1",
+            sid: "8510f6ce8ca743c2",
+            ts: "2026-04-15T08:35:00Z",
+            v: "0.8.2",
+            os: "darwin-arm64",
+            channel: "stable",
+            llm: "claude-code",
+            screen: "review",
+            notes: "x".repeat(900),
+            window_m: 5,
+            tool_stats: [
+                {
+                    family: "observe",
+                    name: "page",
+                    tool: "observe:page",
+                    count: 12,
+                },
+                {
+                    family: "tool",
+                    name: "bad",
+                    tool: "tool:bad",
+                    count: 2,
+                },
+            ],
+            async_outcomes: {
+                complete: 7,
+                bogus: 1,
+            },
+        });
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: requestBody,
+        });
+
+        const response = await ingestAppTelemetryRequest(
+            request,
+            { writeDataPoint } as any,
+            { put } as any,
+        );
+
+        expect(response.status).toBe(202);
+        expect(put).toHaveBeenCalledTimes(1);
+        expect(order[0]).toBe("r2");
+        expect(writeDataPoint).toHaveBeenCalledTimes(3);
+        const malformedRow = writeDataPoint.mock.calls[2][0];
+        expect(malformedRow.blobs[TELEMETRY_BLOB.rowType]).toBe("malformed");
+        expect(malformedRow.blobs[TELEMETRY_BLOB.tool]).not.toBe(requestBody);
+        expect(malformedRow.blobs[TELEMETRY_BLOB.name]).toContain(
+            "telemetry-malformed/",
+        );
+        expect(malformedRow.blobs[TELEMETRY_BLOB.llm]).toBe("claude-code");
+        expect(malformedRow.blobs[TELEMETRY_BLOB.severity]).toContain(
+            "unsupported outcome",
+        );
+    });
+
+    test("falls back to preview-only malformed rows when raw archival fails", async () => {
+        const order: string[] = [];
+        const writeDataPoint = vi.fn(() => {
+            order.push("ae");
+        });
+        const put = vi.fn(async () => {
+            order.push("r2");
+            throw new Error("r2 unavailable");
+        });
+        const request = new Request("https://example.com/v1/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "tool_call",
+                iid: "install-1",
+                sid: "8510f6ce8ca743c2",
+                ts: "2026-04-15T08:10:00Z",
+                v: "0.8.2",
+                os: "darwin-arm64",
+                channel: "stable",
+                llm: "claude-code",
+                family: "observe",
+                name: "page",
+                tool: "observe:page",
+            }),
+        });
+
+        const response = await ingestAppTelemetryRequest(
+            request,
+            { writeDataPoint } as any,
+            { put } as any,
+        );
+
+        expect(response.status).toBe(202);
+        expect(order[0]).toBe("r2");
+        expect(writeDataPoint).toHaveBeenCalledTimes(1);
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.rowType]).toBe(
+            "malformed",
+        );
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.name]).toBe("");
+        expect(writeDataPoint.mock.calls[0][0].blobs[TELEMETRY_BLOB.severity]).toContain(
+            "raw payload archival failed",
+        );
+    });
+
     test("accepts tool_call beacons", () => {
         const beacon = parseAppTelemetryBeacon({
             event: "tool_call",

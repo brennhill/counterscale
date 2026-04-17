@@ -37,6 +37,13 @@ https://t.gokaboom.dev/v1/event
 
 Successful ingestion returns `202 Accepted`.
 
+Malformed telemetry is fail-open:
+
+- valid events write their normal normalized rows
+- partially invalid `usage_summary` payloads salvage valid rows
+- invalid payloads also write one `malformed` debug row
+- malformed payloads do not block ingestion with `400`
+
 ## Shared Envelope
 
 Every event must include the shared envelope.
@@ -50,6 +57,7 @@ Every event must include the shared envelope.
 | `v` | string | yes | `0.8.2` | App version |
 | `os` | string | yes | `darwin-arm64` | OS/platform identifier |
 | `channel` | string | yes | `stable` | Release channel |
+| `llm` | string | no | `claude-code` | MCP client name from initialize handshake |
 | `screen` | string | no | `review` | Current visible surface |
 | `workspace_bucket` | string | no | `2_5` | Approximate workload/project-size bucket |
 
@@ -96,6 +104,8 @@ The supported event set is:
 - `usage_summary`
 - `app_error`
 
+In addition to those producer event types, the ingest service may write a storage-only row type named `malformed` for debugging invalid payloads.
+
 ### `tool_call`
 
 Emit one event per meaningful tool invocation or command action.
@@ -107,7 +117,6 @@ Emit one event per meaningful tool invocation or command action.
 | `tool` | string | yes | `observe:page` | Combined tool key |
 | `outcome` | string | yes | `success` | One of `success`, `error`, `cancelled`, `timeout`, `expired` |
 | `latency_ms` | integer | no | `45` | End-to-end latency |
-| `entrypoint` | string | no | `click` | Use-path hint |
 | `source` | string | no | `ui` | Runtime origin such as `ui`, `extension`, `mcp`, `background` |
 | `async` | boolean | no | `true` | Whether the command was async |
 | `async_outcome` | string | no | `timeout` | One of `complete`, `error`, `timeout`, `expired`, `cancelled` |
@@ -372,6 +381,7 @@ Current row types:
 - `tool_summary`
 - `async_outcome`
 - `app_error`
+- `malformed`
 
 Flattening rules:
 
@@ -382,6 +392,7 @@ Flattening rules:
 - one `app_error` row per `app_error` event
 - one `tool_summary` row per `usage_summary.tool_stats[]` entry
 - one `async_outcome` row per `usage_summary.async_outcomes` key
+- one `malformed` row for each invalid or partially invalid payload
 
 Blob layout in `kaboomTelemetry`:
 
@@ -394,12 +405,12 @@ Blob layout in `kaboomTelemetry`:
 | `blob5` | session id |
 | `blob6` | app version |
 | `blob7` | os |
-| `blob8` | tool |
+| `blob8` | tool, or raw payload for `malformed` rows |
 | `blob9` | source or reason |
 | `blob10` | family |
 | `blob11` | name |
 | `blob12` | channel |
-| `blob13` | entrypoint |
+| `blob13` | llm (MCP client name), or joined validation errors for `malformed` rows |
 | `blob14` | outcome |
 | `blob15` | async outcome |
 | `blob16` | error kind |
@@ -433,6 +444,8 @@ Notes:
 - `tool_call`, `first_tool_call`, `session_start`, `session_end`, and `app_error` all write `count = 1`.
 - `session_start.reason`, `session_end.reason`, and `app_error.source` are stored in `blob9`.
 - `ts` is stored as `double1` and should be used for v2 time filtering.
+- `malformed` rows use `error_kind = malformed_payload`, `error_code = json_parse_failed` or `contract_validation_failed`, and `source = ingest`.
+- product analytics queries should exclude `malformed` rows by default.
 
 ## Analysis Mapping
 
